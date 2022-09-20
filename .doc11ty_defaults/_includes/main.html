@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{title}}</title>
+    <!-- doc11ty inserts bulma css -->
+    <style>
+        {% d11ty_getBulma %}
+    </style>
+    <!-- doc11ty plugin injects the page-break css directly -->
+</head>
+<body>
+    <!-- this template is processed using nunjucks -->
+    <div class="container">
+        <div class="content my-6 mx-6">
+            {{ content | safe }}
+        </div>
+    </div>
+</body>
+</html>

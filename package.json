@@ -1,0 +1,37 @@
+{
+  "bin": "cli.js",
+  "name": "doc11ty",
+  "version": "0.4.0",
+  "description": "Transform your markdown into beautiful PDFs",
+  "main": "main.js",
+  "scripts": {
+    "inspect-as-cli": "node --inspect-brk cli.js",
+    "inspect-as-plugin": "npm exec --node-options='--inspect-brk' -- eleventy"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kev4ev/doc11ty.git"
+  },
+  "keywords": [
+    "eleventy",
+    "11ty",
+    "markdown",
+    "pdf"
+  ],
+  "author": "kev4ev",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/kev4ev/doc11ty/issues"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "homepage": "https://github.com/kev4ev/doc11ty#readme",
+  "dependencies": {
+    "@11ty/eleventy": "^2.0.0-canary.15",
+    "chalk": "^5.0.1",
+    "commander": "^9.4.0",
+    "inquirer": "^9.1.1",
+    "puppeteer": "^17.1.3"
+  }
+}
