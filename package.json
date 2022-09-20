@@ -1,6 +1,6 @@
 {
   "bin": "cli.js",
-  "name": "doc11ty",
+  "name": "d11ty",
   "version": "0.4.0",
   "description": "Transform your markdown into beautiful PDFs",
   "main": "main.js",
@@ -10,7 +10,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/kev4ev/doc11ty.git"
+    "url": "git+https://github.com/kev4ev/d11ty.git"
   },
   "keywords": [
     "eleventy",
@@ -21,12 +21,12 @@
   "author": "kev4ev",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/kev4ev/doc11ty/issues"
+    "url": "https://github.com/kev4ev/d11ty/issues"
   },
   "engines": {
     "node": ">=16.0.0"
   },
-  "homepage": "https://github.com/kev4ev/doc11ty#readme",
+  "homepage": "https://github.com/kev4ev/d11ty#readme",
   "dependencies": {
     "@11ty/eleventy": "^2.0.0-canary.15",
     "chalk": "^5.0.1",

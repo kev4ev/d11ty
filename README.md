@@ -1,8 +1,10 @@
-# A doc11ty do-ya
+# Make Your Markdown Pretty
 
-**This package is a WIP version and should not yet be used in your project. Please check back soon.**
+> _dit &bull; ty (noun) a short, simple song_
 
-`doc11ty` (dock-ity) exists for a sole purpose - to take your markdown files and transform them into beautiful PDFs. It does this by harnessing the power and extensibil11ty of the 11ty static site generator to first transform your markdown into HTML, and then fires up puppeteer to generate the PDF(s). 
+`d11ty` is a CLI tool that doubles as an eleventy plugin. It exists for a simple sole purpose - to create beautiful PDFs from minimal markup/down.
+
+My inspiration for creating `d11ty` was simple. markdown / strutured flows 
 
 ## Usage
 No need to install. Just run from your command line as such:
