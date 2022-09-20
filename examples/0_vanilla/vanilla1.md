@@ -13,7 +13,7 @@ layout: main
 > Born and raised in South Detroit \
 > He took the midnight train going anywhere
 
-{% d11ty 'pb' %}
+{% d11ty %}
 
 > A singer in a smokey room \
 > A smell of wine and cheap perfume \

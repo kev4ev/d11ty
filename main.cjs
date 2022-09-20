@@ -17,6 +17,7 @@ const pageBreakCss =
         }
     </style>
 `;
+const NS = `d11ty`;
 
 // module level variables
 let ppt; // puppeteer
@@ -172,11 +173,10 @@ function plugin(eleventyConfig, pluginConfig){
     let docMap = new Map();
     
     // implement a pseudo ns for all shortcodes and filters; async shortcodes have separate API
-    const NS = `d11ty`;
     let { shortcodes, filters } = PLUGIN_API;
     if(shortcodes){
-        eleventyConfig.addShortcode(NS, function(cmd, ...rest){
-            let { cmd, args } = interpretCmd(cmd, rest);
+        eleventyConfig.addShortcode(NS, function(cmdStr, ...rest){
+            let { cmd, args } = interpretCmd(cmdStr, rest);
             let fn = shortcodes[cmd];
             if(args && args.length > 0){
                 return fn(...args);
@@ -186,8 +186,8 @@ function plugin(eleventyConfig, pluginConfig){
         });
     }
     if(filters){
-        eleventyConfig.addFilter(NS, async function(cmd, ...rest){
-            let { cmd, args } = interpretCmd(cmd, rest);
+        eleventyConfig.addFilter(NS, async function(cmdStr, ...rest){
+            let { cmd, args } = interpretCmd(cmdStr, rest);
             let fn = filters[cmd];
             if(args && args.length > 0){
                 return await fn(...args);
