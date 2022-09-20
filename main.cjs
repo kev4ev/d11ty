@@ -145,7 +145,7 @@ function interpretCmd(cmdStr, ...rest){
         cmd = cmdStr;
         args = rest;
     } else{
-        args = cmdStr.trim().split(' ').filter(cmd => cmd);
+        args = cmdStr.trim().split(' ').filter(cmd => cmd && cmd.length > 0);
         cmd = args.shift();
     }
 
@@ -176,7 +176,7 @@ function plugin(eleventyConfig, pluginConfig){
     let { shortcodes, filters } = PLUGIN_API;
     if(shortcodes){
         eleventyConfig.addShortcode(NS, function(cmdStr, ...rest){
-            let { cmd, args } = interpretCmd(cmdStr, rest);
+            let { cmd, args } = interpretCmd(cmdStr, ...rest);
             let fn = shortcodes[cmd];
             if(args && args.length > 0){
                 return fn(...args);
@@ -187,7 +187,7 @@ function plugin(eleventyConfig, pluginConfig){
     }
     if(filters){
         eleventyConfig.addFilter(NS, async function(cmdStr, ...rest){
-            let { cmd, args } = interpretCmd(cmdStr, rest);
+            let { cmd, args } = interpretCmd(cmdStr, ...rest);
             let fn = filters[cmd];
             if(args && args.length > 0){
                 return await fn(...args);
@@ -198,16 +198,16 @@ function plugin(eleventyConfig, pluginConfig){
     }
 
     // paired d11ty shortcodes
-    eleventyConfig.addPairedShortcode(NS, function(content, ...rest){
-        const classReducer = (prev, curr)=>{
-            if(curr) prev = prev + ' ' + curr; 
+    // eleventyConfig.addPairedShortcode(NS, function(content, ...rest){
+    //     const classReducer = (prev, curr)=>{
+    //         if(curr) prev = prev + ' ' + curr; 
 
-            return prev;
-        }
-        let changed = `<div class="${rest.reduce(classReducer, '')}">${content}</div>`;
+    //         return prev;
+    //     }
+    //     let changed = `<div class="${rest.reduce(classReducer, '')}">${content}</div>`;
 
-        return changed;
-    });
+    //     return changed;
+    // });
     
     
     // 'before' event listener to set closure context including output mode
