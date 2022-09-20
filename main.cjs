@@ -197,17 +197,17 @@ function plugin(eleventyConfig, pluginConfig){
         });
     }
 
-    // paired d11ty shortcodes
-    // eleventyConfig.addPairedShortcode(NS, function(content, ...rest){
-    //     const classReducer = (prev, curr)=>{
-    //         if(curr) prev = prev + ' ' + curr; 
+    // paired d11ty; must have underscore (_) as prefix
+    eleventyConfig.addPairedShortcode(`_${NS}`, function(content, ...rest){
+        const classReducer = (prev, curr)=>{
+            if(curr) prev = prev + ' ' + curr; 
 
-    //         return prev;
-    //     }
-    //     let changed = `<div class="${rest.reduce(classReducer, '')}">${content}</div>`;
+            return prev;
+        }
+        let changed = `<div class="${rest.reduce(classReducer, '')}">${content}</div>`;
 
-    //     return changed;
-    // });
+        return changed;
+    });
     
     
     // 'before' event listener to set closure context including output mode
