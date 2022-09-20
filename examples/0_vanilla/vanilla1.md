@@ -13,14 +13,14 @@ layout: main
 > Born and raised in South Detroit \
 > He took the midnight train going anywhere
 
-{% d11ty_pb %}
+{% d11ty 'pb' %}
 
 > A singer in a smokey room \
 > A smell of wine and cheap perfume \
 > For a smile they can share the night \
 > It goes on and on and on and on
 
-{% d11ty_pb %}
+{% d11ty 'pb' %}
 
 > Strangers waitin' \
 > Up and down the boulevard \

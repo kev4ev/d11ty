@@ -1,7 +1,6 @@
 const { getCliContext } = require('../main.cjs');
-const path = require('path');
 
-// sets a default config for when doc11ty is invoked from cli
+// sets a default config for when d11ty is invoked from cli
 module.exports = function(eleventyConfig){
     let { inputRaw, inputDir, defaultsDir } = getCliContext();
     return {
@@ -14,5 +13,4 @@ module.exports = function(eleventyConfig){
         htmlTemplateEngine: 'njk',
         markdownTemplateEngine: 'njk'
     }
-
 }

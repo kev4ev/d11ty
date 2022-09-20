@@ -37,7 +37,7 @@
 
 {% endd11ty %}
 
-{% d11ty_pb %}
+{% d11ty 'pb' %}
 
 (reverse works, too)
 

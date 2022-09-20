@@ -9,14 +9,14 @@ My inspiration for creating `d11ty` was simple. markdown / strutured flows
 ## Usage
 No need to install. Just run from your command line as such:
 ```sh
-npx doc11ty [ -c, --collate ] 
+npx d11ty [ -c, --collate ] 
             [ -f <configFile> ] 
             [ -o <outputDirectory>] 
             <pathOrFileSpec>
 ```
 
 ## Configuration
-A configuration file named `.doc11ty.js` can be included in the root of your project directory. It must export a single function that resolves to an object that may contain any of the following keys: 
+A configuration file named `.d11ty.js` can be included in the root of your project directory. It must export a single function that resolves to an object that may contain any of the following keys: 
 
 Key             | Description               | default value
 --              | --                        | --

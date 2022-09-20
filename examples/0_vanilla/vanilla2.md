@@ -30,7 +30,7 @@ And let me hear the party say
 ### Let's flip the track, bring the old school back
 #### (This is how we do it)
 
-{% d11ty_pb %}
+{% d11ty 'pb' %}
 
 ```
 This is how we do it, all hands are in the air

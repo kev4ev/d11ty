@@ -7,11 +7,11 @@ const path = require('path');
  * @typedef {import('puppeteer').PDFOptions} PDFOptions
  */
 
-const DEF_DIR = '.doc11ty_defaults';
+const DEF_DIR = '.d11ty_defaults';
 const pageBreakCss = 
     `<style>
         @media print{
-            div.doc11ty-page-break{
+            div.d11ty-page-break{
                 page-break-after: always !important;
             }
         }
@@ -109,12 +109,12 @@ async function writePdfToFs(filePath, bufferArray, encoding='utf-8'){
 // all filters and shortcodes
 const PLUGIN_API = (()=>{
 
-    // closure api
+    // closure variable to hold bulma css when used from command line
     let bulma = {};
 
     return {
         shortcodes: {
-            pb: () => '<div class="doc11ty-page-break"></div>',
+            pb: () => '<div class="d11ty-page-break"></div>',
             getBulma: (version, min) =>{ // this filter is meant only for CLI layouts
                 if(!version) version = '0.9.4';
                 if(INPUT_RAW){
@@ -134,9 +134,30 @@ const PLUGIN_API = (()=>{
 })();
 
 /**
+ * inspects the raw command passed to the shortcode or filter, and returns structured object
+ * @param {string} cmdStr the raw argument passed to a shortcode or filter
+ * @return {object} CmdStruct
+ */
+function interpretCmd(cmdStr, ...rest){
+    let cmd, args;
+    if(rest && rest.length > 0){
+        cmd = cmdStr;
+        args = rest;
+    } else{
+        args = cmdStr.trim().split(' ').filter(cmd => cmd);
+        cmd = args.shift();
+    }
+
+    return {
+        cmd,
+        args
+    }
+}
+
+/**
  * 
  * @param {object} eleventyConfig eleventyConfiguration
- * @param {PluginConfig} pluginConfig doc11ty configuration
+ * @param {PluginConfig} pluginConfig d11ty configuration
  * @returns 
  */
 function plugin(eleventyConfig, pluginConfig){
@@ -153,14 +174,26 @@ function plugin(eleventyConfig, pluginConfig){
     // implement a pseudo ns for all shortcodes and filters; async shortcodes have separate API
     const NS = `d11ty`;
     let { shortcodes, filters } = PLUGIN_API;
-    for(let name in shortcodes){
-        eleventyConfig.addShortcode(`${NS}_${name}`, function(){
-            let fn = shortcodes[name];
-            if(arguments){
-                return fn(...arguments);
-            } else{
-                return fn();
+    if(shortcodes){
+        eleventyConfig.addShortcode(NS, function(cmd, ...rest){
+            let { cmd, args } = interpretCmd(cmd, rest);
+            let fn = shortcodes[cmd];
+            if(args && args.length > 0){
+                return fn(...args);
             }
+            
+            return fn();
+        });
+    }
+    if(filters){
+        eleventyConfig.addFilter(NS, async function(cmd, ...rest){
+            let { cmd, args } = interpretCmd(cmd, rest);
+            let fn = filters[cmd];
+            if(args && args.length > 0){
+                return await fn(...args);
+            }
+
+            return await fn();
         });
     }
 
@@ -176,14 +209,6 @@ function plugin(eleventyConfig, pluginConfig){
         return changed;
     });
     
-    // filters
-    if(filters){
-        for(let name in filters){
-            eleventyConfig.addFilter(`${NS}_${name}`, async function(){
-                return await filters[name](...arguments);
-            });
-        }
-    }
     
     // 'before' event listener to set closure context including output mode
     eleventyConfig.on('eleventy.before', function(args){ 
@@ -192,8 +217,8 @@ function plugin(eleventyConfig, pluginConfig){
     });
 
     // transformer
-    eleventyConfig.addTransform('doc11ty', async function(content){
-        // in all cases append the doc11ty css to enable print page breaks
+    eleventyConfig.addTransform(NS, async function(content){
+        // in all cases append the d11ty css to enable print page breaks
         content = content.replace(
             '</head>',
             pageBreakCss + '</head>'

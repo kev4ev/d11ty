@@ -4,7 +4,7 @@ The files in this directory were all converted from markdown to PDF individually
 
 ```sh
 # run from project root
-doc11ty examples/markdown1.md
+d11ty examples/markdown1.md
 ```
 
 They use only plain markdown syntax with no added [Bulma](https://bulma.io/documentation/) classes...though I would highly recommend you check them out to truly beautify your own docs.

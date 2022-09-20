@@ -9,7 +9,7 @@ const path = require('path');
 
 program
     .option('-c, --collate', 'collate multiple files into a single PDF')
-    .option('-f, --config <path>' , 'relative path from pwd to .doc11ty.js config file')
+    .option('-f, --config <path>' , 'relative path from pwd to .d11ty.js config file')
     .option('-o, --output <path>', 'relative path where PDF file(s) will be created')
     .option('--html', 'generate html as well as pdf files')
     .argument('[input]', 'file or directory path to markdown files for conversion', '.')
