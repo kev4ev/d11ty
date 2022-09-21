@@ -1,7 +1,3 @@
----
-layout: main
----
-
 # Don't Stop Believin'
 
 <!-- we'll use some page breaks to split up the verses and chorus -->
