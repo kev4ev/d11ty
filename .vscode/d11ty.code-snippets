@@ -1,0 +1,26 @@
+{
+    "_d11ty": {
+        "scope": "markdown",
+        "prefix": "d1",
+        "body": [
+            "{% _d11ty '${1:classes string}' %}",
+            "",
+            "${0}",
+            "",
+            "{% end_d11ty %}"
+        ],
+        "description": "_d11ty paired shortcode"
+    },
+    "d11ty": {
+        "scope": "markdown",
+        "prefix": "d1", 
+        "body": "{% d11ty ${1|pb|} %}",
+        "description": "d11ty shortcodes"
+    },
+    "nod11ty": {
+        "scope": "markdown",
+        "prefix": "d1", 
+        "body": "{% nod11ty %}",
+        "description": "shortcode to make d11ty ignore this file"
+    }
+}

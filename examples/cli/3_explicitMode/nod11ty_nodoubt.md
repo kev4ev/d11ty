@@ -1,3 +1,0 @@
-This file, sadly, will never be converted to a beautiful PDF. Oh, what might have been...
-
-{% nod11ty %}
