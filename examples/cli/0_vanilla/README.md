@@ -9,3 +9,4 @@ d11ty examples/markdown1.md
 
 They use only plain markdown syntax with no added [Bulma](https://bulma.io/documentation/) classes...though I would highly recommend you check them out to truly beautify your own docs.
 
+<!-- {% nod11ty %} -->
