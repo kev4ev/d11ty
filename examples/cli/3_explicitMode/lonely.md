@@ -1,4 +1,3 @@
-<!-- This file, sadly, will never be converted to a beautiful PDF. Oh, what might have been... -->
 # Lonely 
 
 > Lonely, I'm Mr. Lonely \
@@ -8,4 +7,4 @@
 
 {% nod11ty %}
 
-
+This file, sadly, will never be converted to a beautiful PDF. Oh, what might have been...

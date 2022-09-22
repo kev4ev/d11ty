@@ -48,6 +48,7 @@ class PluginConfig{
     constructor(config={}){
         this.collate = config.collate;
         this.output = config.output;
+        this.explicit = config.explicit;
     }
     
     /**
@@ -120,7 +121,7 @@ function interpretCmd(cmdStr, ...rest){
 function plugin(eleventyConfig, pluginConfig){
     
     // closure variables
-    let { srcIsCli, collate } = pluginConfig;
+    let { srcIsCli, collate, explicit } = pluginConfig;
     let outputMode,
     writePdf = ()=>{
         return outputMode === 'fs' || srcIsCli; // if cli-invoked and --html flag passed, outputMode will be 'fs'
