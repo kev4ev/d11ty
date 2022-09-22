@@ -1,7 +1,7 @@
-const puppeteer = require('puppeteer');
 const fs = require('fs/promises');
 const fssync = require('fs');
 const path = require('path');
+const { getPdfBuffer, writePdfToFs } = require('./lib/pdf');
 
 /**
  * @typedef {import('puppeteer').PDFOptions} PDFOptions
@@ -20,7 +20,6 @@ const pageBreakCss =
 const NS = `d11ty`;
 
 // module level variables
-let ppt; // puppeteer
 let INPUT_RAW,
     _inputDir,
     _inputAbs,
@@ -38,20 +37,17 @@ let INPUT_RAW,
         return `${getInputAbs()}/${DEF_DIR}`;
     }
 
-
-
 class PluginConfig{
     /**
      * constructor
      * @param {object} [config] config object
-     * @param {boolean} [config.html] when true, will also generate PDF output (ignored when not used from CLI)
      * @param {boolean} [config.collate] whether html should be collated to a single file, or not
      * @param {string} [config.output] path spec to output directory when collating
+     * @param {boolean} [config.explicit] when true, only files with the {% d11ty %} shortcode will be written to PDF
      */
     constructor(config={}){
         this.collate = config.collate;
         this.output = config.output;
-        this.html = config.html;
     }
     
     /**
@@ -65,46 +61,6 @@ class PluginConfig{
     get srcIsCli(){
         return this._srcIsCli;
     }
-}
-
-/**
- * 
- * @param {string} htmlContent the html content that will be written to PDF
- * @param {PDFOptions} [pdfOptions] puppeteer PDFOptionsclass
- * @returns 
- */
-async function getPdfBuffer(htmlContent, pdfOptions, headless=true){
-    if(!pdfOptions){
-        // set default
-        pdfOptions = { 
-            printBackground: true,
-            layout: 'Letter',
-            margin: {
-                top: '.25in', 
-                bottom: '.25in'
-            }
-        };
-    }
-
-    // init puppeteer if this is first fn invocation
-    if(!ppt){
-        ppt = await puppeteer.launch({
-            headless
-        });
-    }
-
-    // create puppeteer page instance
-    let page = await ppt.newPage(); // TODO use single page?
-    await page.setContent(htmlContent, {
-        waitUntil: 'networkidle2'
-    });
-    
-    // page.pdf returns Promise<Buffer>
-    return await page.pdf(pdfOptions);
-}
-
-async function writePdfToFs(filePath, bufferArray, encoding='utf-8'){
-    await fs.writeFile(filePath, bufferArray, encoding);
 }
 
 // all filters and shortcodes
@@ -168,15 +124,19 @@ function plugin(eleventyConfig, pluginConfig){
     let outputMode,
     writePdf = ()=>{
         return outputMode === 'fs' || srcIsCli; // if cli-invoked and --html flag passed, outputMode will be 'fs'
-    }, 
-    dir;
+    };
     let docMap = new Map();
+    let ignores = new Set();
     
     // implement a pseudo ns for all shortcodes and filters; async shortcodes have separate API
     let { shortcodes, filters } = PLUGIN_API;
     if(shortcodes){
         eleventyConfig.addShortcode(NS, function(cmdStr, ...rest){
             let { cmd, args } = interpretCmd(cmdStr, ...rest);
+            // if no cmd is provided - e.g. {% doc11ty %} in the template - invoke the "include" function
+            if(!cmd){
+
+            }
             let fn = shortcodes[cmd];
             if(args && args.length > 0){
                 return fn(...args);
@@ -185,6 +145,15 @@ function plugin(eleventyConfig, pluginConfig){
             return fn();
         });
     }
+
+    // add nod11ty ignore shortcode
+    eleventyConfig.addShortcode(`no${NS}`, function(){
+        let { inputPath } = this.page;
+        ignores.add(inputPath);
+
+        return '';
+    });
+
     if(filters){
         eleventyConfig.addFilter(NS, async function(cmdStr, ...rest){
             let { cmd, args } = interpretCmd(cmdStr, ...rest);
@@ -223,10 +192,10 @@ function plugin(eleventyConfig, pluginConfig){
             '</head>',
             pageBreakCss + '</head>'
         );
-
-        if(!writePdf()) return content;
         
         let { inputPath, outputPath } = this;
+
+        if(!writePdf() || ignores.has(inputPath)) return content;
 
         if(outputPath && outputPath.endsWith('.html') && content){
             // generate PDFs async and do not await each result; will Promise.all() in 'eleventy-after' listener
@@ -266,11 +235,6 @@ function plugin(eleventyConfig, pluginConfig){
         }
 
         // TODO handle collate here via pdf-lib
-        
-        // close ppt
-        if(ppt){
-            await ppt.close();
-        }
     });
 }
 

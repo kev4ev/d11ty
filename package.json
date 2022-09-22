@@ -5,8 +5,8 @@
   "description": "Transform your markdown into beautiful PDFs",
   "main": "main.js",
   "scripts": {
-    "inspect-as-cli": "node --inspect-brk cli.js",
-    "inspect-as-plugin": "npm exec --node-options='--inspect-brk' -- eleventy",
+    "inspect:cli": "node --inspect-brk cli.js",
+    "inspect:plugin": "npm exec --node-options='--inspect-brk' -- eleventy",
     "prepublishOnly": "read -p 'release type (major|minor|patch): ' RELEASE_TYPE && RELEASE_TYPE=$RELEASE_TYPE node scripts/prepublishOnly.js"
   },
   "repository": {
