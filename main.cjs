@@ -1,7 +1,7 @@
 const fs = require('fs/promises');
 const fssync = require('fs');
 const path = require('path');
-const { getPdfBuffer, writePdfToFs } = require('./lib/pdf');
+const PdfWriter = require('./lib/PdfWriter');
 
 /**
  * @typedef {import('puppeteer').PDFOptions} PDFOptions
@@ -130,10 +130,13 @@ function plugin(eleventyConfig, pluginConfig){
     let bufferMap = new Map(),
         docs = new Set(),
         ignores = new Set();
+    
+    let writer;
 
     // 'before' event listener to set closure context
     eleventyConfig.on('eleventy.before', function(args){ 
         outputMode = args.outputMode;
+        if(!isDryRun()) writer = new PdfWriter();
     });
     
     // d11ty sync shortcodes
@@ -205,7 +208,7 @@ function plugin(eleventyConfig, pluginConfig){
 
         if(outputPath && outputPath.endsWith('.html') && content){
             // generate PDFs async and do not await each result; will Promise.all() in 'eleventy-after' listener
-            bufferMap.set(inputPath, getPdfBuffer(content, pluginConfig.pdfOptions));
+            bufferMap.set(inputPath, writer.getPdfBuffer(content, pluginConfig.pdfOptions));
         }
 
         return content;
@@ -231,14 +234,14 @@ function plugin(eleventyConfig, pluginConfig){
         if(!results || results.length === 0){ // just write the PDFs to their corresponding input path
             for(let inputPath in docs){
                 filename = inputPath.replace('.md', '.pdf');
-                await writePdfToFs(filename, docs[inputPath]);
+                await writer.writePdfToFs(filename, docs[inputPath]);
             }
         } else{
             for(let result of results){
                 let { inputPath, outputPath } = result;
                 if(docs[inputPath]){
                     filename = outputPath.replace('.html', '.pdf');
-                    await writePdfToFs(filename, docs[inputPath]);
+                    await writer.writePdfToFs(filename, docs[inputPath]);
                 }
             }
         }
