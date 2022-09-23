@@ -71,18 +71,13 @@ const PLUGIN_API = (()=>{
     let bulma = {};
 
     return {
+        // shortcodes always receive a d11ty-created ctxt variable as first arg, if they want to use it
         shortcodes: {
             pb: () => '<div class="d11ty-page-break"></div>',
-            getBulma: (version, min) =>{ // TODO remove
+            getBulmaPath: (ctxt, version, min) =>{ // for cli use only
                 if(!version) version = '0.9.4';
                 if(INPUT_RAW){
-                    if(!bulma[version]){
-                        let bulmaAbs = `${getDefaultAbs()}/css/bulma.${version}.${min ? 'min.' : ''}css`;
-
-                        bulma[version] = fssync.readFileSync(bulmaAbs, 'utf-8');
-                    }
-    
-                    return bulma[version];
+                    return `http://localhost:${ctxt.writer.servePort}/.d11ty_defaults/css/bulma.${version}.css`;
                 } else{
                     throw new Error('Shortcode "getBulmaPath" may only be used in CLI context');
                 }
@@ -138,7 +133,6 @@ function plugin(eleventyConfig, pluginConfig){
     // 'before' event listener to set closure context
     eleventyConfig.on('eleventy.before', function(args){ 
         outputMode = args.outputMode;
-        let { outputPath } = args.dir;
         if(!isDryRun()) writer = new PdfWriter(srcIsCli ? output : undefined);
     });
     
@@ -155,12 +149,15 @@ function plugin(eleventyConfig, pluginConfig){
             }
             // else command / args provided
             let { cmd, args } = interpretCmd(cmdStr, ...rest);
+            // get the function and bind closure variables
             let fn = shortcodes[cmd];
+            // call function, always passing d11ty context as first arg
+            let ctxt = { writer };
             if(args && args.length > 0){
-                return fn(...args);
+                return fn(ctxt, ...args);
             }
             
-            return fn();
+            return fn(ctxt);
         });
     }
 
