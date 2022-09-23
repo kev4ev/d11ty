@@ -18,6 +18,10 @@ const pageBreakCss =
     </style>
 `;
 const NS = `d11ty`;
+const HTML_TAGS = {
+    paired: new Set(require('html-tags')),
+    unpaired: new Set(require('html-tags/void'))
+};
 
 // module level variables
 let INPUT_RAW,
@@ -171,12 +175,19 @@ function plugin(eleventyConfig, pluginConfig){
 
     // _d11ty paired shortcode
     eleventyConfig.addPairedShortcode(`_${NS}`, function(content, ...rest){
+        rest = rest.length > 1 ? rest : rest[0].split(' ').map(str => str.trim()).filter(str => str.length > 0);
+        let first = rest[0];
+        let explicitTag = HTML_TAGS.paired.has(first) || HTML_TAGS.unpaired.has(first) ? rest.shift() : undefined;
+        let unpairedTag = explicitTag ? HTML_TAGS.unpaired.has(explicitTag) : undefined;
         const classReducer = (prev, curr)=>{
             if(curr) prev = prev + ' ' + curr; 
 
             return prev;
         }
-        let changed = `<div class="${rest.reduce(classReducer, '')}">${content}</div>`;
+
+        let tag = explicitTag ? explicitTag : 'div',
+            wrapper = `<${tag} class="${rest.reduce(classReducer, '')}" ${unpairedTag ? '/' : ''}>{{content}}${unpairedTag ? '' : `</${tag}>`}`
+            changed = wrapper.replace('{{content}}', content);
 
         return changed;
     });

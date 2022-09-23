@@ -1,6 +1,6 @@
-# This is how we do it
+# This is How We Do It
 
-<!-- let's use some small headers and code blocks this time -->
+<!-- just some markdown headers and code blocks -->
 
 ```
 This is how we do it
@@ -61,3 +61,5 @@ And let me hear the party say
 #### (This is how we do it)
 ### Let's flip the track, bring the old school back
 #### (This is how we do it)
+
+_This Is How We Do It lyrics © Warner-tamerlane Publishing Corp., Slick Rick Music Corp., Oji Music, Mo'swang Publishing, Songs Of Universal, Inc., Songs Of Universal Inc._
