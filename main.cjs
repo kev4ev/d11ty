@@ -73,7 +73,7 @@ const PLUGIN_API = (()=>{
     return {
         shortcodes: {
             pb: () => '<div class="d11ty-page-break"></div>',
-            getBulma: (version, min) =>{ // this filter is meant only for CLI layouts
+            getBulma: (version, min) =>{ // TODO remove
                 if(!version) version = '0.9.4';
                 if(INPUT_RAW){
                     if(!bulma[version]){
@@ -120,24 +120,35 @@ function interpretCmd(cmdStr, ...rest){
  */
 function plugin(eleventyConfig, pluginConfig){
     
-    // closure variables
+    // closure variables; TODO set explicit/implicit
     let { srcIsCli, collate, explicit } = pluginConfig;
     let outputMode,
-    writePdf = ()=>{
-        return outputMode === 'fs' || srcIsCli; // if cli-invoked and --html flag passed, outputMode will be 'fs'
-    };
-    let docMap = new Map();
-    let ignores = new Set();
+        implicitMode,
+        writePdf = ()=>{
+            return outputMode === 'fs' || srcIsCli; // if cli-invoked and --html flag passed, outputMode will be 'fs'
+        };
+    let bufferMap = new Map(),
+        docs = new Set(),
+        ignores = new Set();
+
+    // 'before' event listener to set closure context
+    eleventyConfig.on('eleventy.before', function(args){ 
+        outputMode = args.outputMode;
+    });
     
-    // implement a pseudo ns for all shortcodes and filters; async shortcodes have separate API
+    // d11ty sync shortcodes
     let { shortcodes, filters } = PLUGIN_API;
     if(shortcodes){
         eleventyConfig.addShortcode(NS, function(cmdStr, ...rest){
-            let { cmd, args } = interpretCmd(cmdStr, ...rest);
             // if no cmd is provided - e.g. {% doc11ty %} in the template - invoke the "include" function
-            if(!cmd){
+            if(!cmdStr){
+                let { inputPath } = this.page;
+                docs.add(inputPath);
 
+                return '';
             }
+            // else command / args provided
+            let { cmd, args } = interpretCmd(cmdStr, ...rest);
             let fn = shortcodes[cmd];
             if(args && args.length > 0){
                 return fn(...args);
@@ -147,7 +158,7 @@ function plugin(eleventyConfig, pluginConfig){
         });
     }
 
-    // add nod11ty ignore shortcode
+    // nod11ty shortcode to ensure d11ty ignores a file
     eleventyConfig.addShortcode(`no${NS}`, function(){
         let { inputPath } = this.page;
         ignores.add(inputPath);
@@ -155,6 +166,19 @@ function plugin(eleventyConfig, pluginConfig){
         return '';
     });
 
+    // _d11ty paired shortcode
+    eleventyConfig.addPairedShortcode(`_${NS}`, function(content, ...rest){
+        const classReducer = (prev, curr)=>{
+            if(curr) prev = prev + ' ' + curr; 
+
+            return prev;
+        }
+        let changed = `<div class="${rest.reduce(classReducer, '')}">${content}</div>`;
+
+        return changed;
+    });
+
+    // d11ty filters (async - note that Handlebars does not support)
     if(filters){
         eleventyConfig.addFilter(NS, async function(cmdStr, ...rest){
             let { cmd, args } = interpretCmd(cmdStr, ...rest);
@@ -167,29 +191,10 @@ function plugin(eleventyConfig, pluginConfig){
         });
     }
 
-    // paired d11ty; must have underscore (_) as prefix
-    eleventyConfig.addPairedShortcode(`_${NS}`, function(content, ...rest){
-        const classReducer = (prev, curr)=>{
-            if(curr) prev = prev + ' ' + curr; 
-
-            return prev;
-        }
-        let changed = `<div class="${rest.reduce(classReducer, '')}">${content}</div>`;
-
-        return changed;
-    });
-    
-    
-    // 'before' event listener to set closure context including output mode
-    eleventyConfig.on('eleventy.before', function(args){ 
-        outputMode = args.outputMode;
-        dir = args.dir;
-    });
-
     // transformer
     eleventyConfig.addTransform(NS, async function(content){
         // in all cases append the d11ty css to enable print page breaks
-        content = content.replace(
+        content = content.replace( // TODO remove
             '</head>',
             pageBreakCss + '</head>'
         );
@@ -200,7 +205,7 @@ function plugin(eleventyConfig, pluginConfig){
 
         if(outputPath && outputPath.endsWith('.html') && content){
             // generate PDFs async and do not await each result; will Promise.all() in 'eleventy-after' listener
-            docMap.set(inputPath, getPdfBuffer(content, pluginConfig.pdfOptions));
+            bufferMap.set(inputPath, getPdfBuffer(content, pluginConfig.pdfOptions));
         }
 
         return content;
@@ -211,10 +216,10 @@ function plugin(eleventyConfig, pluginConfig){
         let { results } = args;
         
         // ensure all pdf buffers have resolved
-        let buffers = await Promise.all(docMap.values());
+        let buffers = await Promise.all(bufferMap.values());
         let docs = {},
             ctr = 0;
-        for(let inputPath of Array.from(docMap.keys())){
+        for(let inputPath of Array.from(bufferMap.keys())){
             docs[inputPath] = buffers[ctr];
             ctr++;
         }
