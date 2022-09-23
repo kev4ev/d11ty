@@ -122,6 +122,7 @@ function plugin(eleventyConfig, pluginConfig){
     
     // closure variables; TODO set explicit/implicit
     let { srcIsCli, collate, explicit } = pluginConfig;
+    let { output } = eleventyConfig.dir;
     let outputMode,
         implicitMode,
         isDryRun = ()=>{
@@ -130,13 +131,15 @@ function plugin(eleventyConfig, pluginConfig){
     let bufferMap = new Map(),
         docs = new Set(),
         ignores = new Set();
-    
+    /**
+     * @type {PdfWriter}
+     */
     let writer;
-
     // 'before' event listener to set closure context
     eleventyConfig.on('eleventy.before', function(args){ 
         outputMode = args.outputMode;
-        if(!isDryRun()) writer = new PdfWriter();
+        let { outputPath } = args.dir;
+        if(!isDryRun()) writer = new PdfWriter(srcIsCli ? output : undefined);
     });
     
     // d11ty sync shortcodes
