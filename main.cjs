@@ -124,8 +124,8 @@ function plugin(eleventyConfig, pluginConfig){
     let { srcIsCli, collate, explicit } = pluginConfig;
     let outputMode,
         implicitMode,
-        writePdf = ()=>{
-            return outputMode === 'fs' || srcIsCli; // if cli-invoked and --html flag passed, outputMode will be 'fs'
+        isDryRun = ()=>{
+            return outputMode !== 'fs' && !srcIsCli;
         };
     let bufferMap = new Map(),
         docs = new Set(),
@@ -201,7 +201,7 @@ function plugin(eleventyConfig, pluginConfig){
         
         let { inputPath, outputPath } = this;
 
-        if(!writePdf() || ignores.has(inputPath)) return content;
+        if(isDryRun() || ignores.has(inputPath)) return content;
 
         if(outputPath && outputPath.endsWith('.html') && content){
             // generate PDFs async and do not await each result; will Promise.all() in 'eleventy-after' listener
@@ -213,6 +213,9 @@ function plugin(eleventyConfig, pluginConfig){
 
     // after event listener; again, arrow function to maintain closure var access
     eleventyConfig.on('eleventy.after', async function(args){
+
+        if(isDryRun()) return; // do not create PDFs on dry run
+
         let { results } = args;
         
         // ensure all pdf buffers have resolved
