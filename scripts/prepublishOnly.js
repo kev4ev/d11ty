@@ -2,7 +2,7 @@ const fs = require('fs');
 const semver = require('semver');
 const path = require('path');
 
-const PKG_PATH = `${__dirname}/package.json`;
+const PKG_PATH = `${process.cwd()}/package.json`;
 const pkg = require(PKG_PATH);
 
 // get version and increment according to semver
