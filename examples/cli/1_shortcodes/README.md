@@ -7,3 +7,5 @@ The following Bulma element classes can wrap any content:
 - [notification](https://bulma.io/documentation/elements/notification/)
 
 Check out the exemplars in this directory!
+
+<!-- {% nod11ty %} -->

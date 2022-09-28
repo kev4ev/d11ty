@@ -2,13 +2,14 @@ const fs = require('fs');
 const semver = require('semver');
 const path = require('path');
 
-// get package.js
-const PKG_PATH = `${process.cwd()}/package.json`;
-let package = fs.readFileSync(PKG_PATH, 'utf-8'),
-    obj = JSON.parse(package),
-    version = obj.version, 
+const PKG_PATH = `${__dirname}/package.json`;
+const pkg = require(PKG_PATH);
+
+// get version and increment according to semver
+let version = pkg.version, 
     next = semver.inc(version, process.env.RELEASE_TYPE);
 
-obj.version = next;
+pkg.version = next;
 
-fs.writeFileSync(PKG_PATH, JSON.stringify(obj), 'utf-8');
+// write back to package.json
+fs.writeFileSync(PKG_PATH, JSON.stringify(pkg), 'utf-8');

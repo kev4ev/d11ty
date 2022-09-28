@@ -6,9 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{title}}</title>
     <!-- d11ty inserts bulma css -->
-    <style>
-        {% d11ty 'getBulma' %}
-    </style>
+    <link rel="stylesheet" href="{% d11ty 'getBulmaPath' %}">
     <!-- d11ty plugin injects the page-break css directly -->
 </head>
 <body>
