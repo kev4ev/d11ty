@@ -117,7 +117,7 @@ function interpretCmd(cmdStr, ...rest){
  * @param {PluginConfig} pluginConfig d11ty configuration
  * @returns 
  */
-function plugin(eleventyConfig, pluginConfig){
+function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
     
     // closure variables; TODO set explicit/implicit
     let { srcIsCli, collate, explicit } = pluginConfig;
