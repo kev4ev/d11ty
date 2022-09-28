@@ -1,7 +1,7 @@
-const puppeteer = require('puppeteer');
 const fs = require('fs/promises');
 const fssync = require('fs');
 const path = require('path');
+const PdfWriter = require('./lib/PdfWriter');
 
 /**
  * @typedef {import('puppeteer').PDFOptions} PDFOptions
@@ -18,9 +18,12 @@ const pageBreakCss =
     </style>
 `;
 const NS = `d11ty`;
+const HTML_TAGS = {
+    paired: new Set(require('html-tags')),
+    unpaired: new Set(require('html-tags/void'))
+};
 
 // module level variables
-let ppt; // puppeteer
 let INPUT_RAW,
     _inputDir,
     _inputAbs,
@@ -38,20 +41,18 @@ let INPUT_RAW,
         return `${getInputAbs()}/${DEF_DIR}`;
     }
 
-
-
 class PluginConfig{
     /**
      * constructor
      * @param {object} [config] config object
-     * @param {boolean} [config.html] when true, will also generate PDF output (ignored when not used from CLI)
      * @param {boolean} [config.collate] whether html should be collated to a single file, or not
      * @param {string} [config.output] path spec to output directory when collating
+     * @param {boolean} [config.explicit] when true, only files with the {% d11ty %} shortcode will be written to PDF
      */
     constructor(config={}){
         this.collate = config.collate;
         this.output = config.output;
-        this.html = config.html;
+        this.explicit = config.explicit;
     }
     
     /**
@@ -67,46 +68,6 @@ class PluginConfig{
     }
 }
 
-/**
- * 
- * @param {string} htmlContent the html content that will be written to PDF
- * @param {PDFOptions} [pdfOptions] puppeteer PDFOptionsclass
- * @returns 
- */
-async function getPdfBuffer(htmlContent, pdfOptions, headless=true){
-    if(!pdfOptions){
-        // set default
-        pdfOptions = { 
-            printBackground: true,
-            layout: 'Letter',
-            margin: {
-                top: '.25in', 
-                bottom: '.25in'
-            }
-        };
-    }
-
-    // init puppeteer if this is first fn invocation
-    if(!ppt){
-        ppt = await puppeteer.launch({
-            headless
-        });
-    }
-
-    // create puppeteer page instance
-    let page = await ppt.newPage(); // TODO use single page?
-    await page.setContent(htmlContent, {
-        waitUntil: 'networkidle2'
-    });
-    
-    // page.pdf returns Promise<Buffer>
-    return await page.pdf(pdfOptions);
-}
-
-async function writePdfToFs(filePath, bufferArray, encoding='utf-8'){
-    await fs.writeFile(filePath, bufferArray, encoding);
-}
-
 // all filters and shortcodes
 const PLUGIN_API = (()=>{
 
@@ -114,18 +75,13 @@ const PLUGIN_API = (()=>{
     let bulma = {};
 
     return {
+        // shortcodes always receive a d11ty-created ctxt variable as first arg, if they want to use it
         shortcodes: {
             pb: () => '<div class="d11ty-page-break"></div>',
-            getBulma: (version, min) =>{ // this filter is meant only for CLI layouts
+            getBulmaPath: (ctxt, version, min) =>{ // for cli use only
                 if(!version) version = '0.9.4';
                 if(INPUT_RAW){
-                    if(!bulma[version]){
-                        let bulmaAbs = `${getDefaultAbs()}/css/bulma.${version}.${min ? 'min.' : ''}css`;
-
-                        bulma[version] = fssync.readFileSync(bulmaAbs, 'utf-8');
-                    }
-    
-                    return bulma[version];
+                    return `http://localhost:${ctxt.writer.servePort}/.d11ty_defaults/css/bulma.${version}.css`;
                 } else{
                     throw new Error('Shortcode "getBulmaPath" may only be used in CLI context');
                 }
@@ -163,28 +119,80 @@ function interpretCmd(cmdStr, ...rest){
  */
 function plugin(eleventyConfig, pluginConfig){
     
-    // closure variables
-    let { srcIsCli, collate } = pluginConfig;
+    // closure variables; TODO set explicit/implicit
+    let { srcIsCli, collate, explicit } = pluginConfig;
+    let { output } = eleventyConfig.dir;
     let outputMode,
-    writePdf = ()=>{
-        return outputMode === 'fs' || srcIsCli; // if cli-invoked and --html flag passed, outputMode will be 'fs'
-    }, 
-    dir;
-    let docMap = new Map();
+        implicitMode,
+        isDryRun = ()=>{
+            return outputMode !== 'fs' && !srcIsCli;
+        };
+    let bufferMap = new Map(),
+        docs = new Set(),
+        ignores = new Set();
+    /**
+     * @type {PdfWriter}
+     */
+    let writer;
+    // 'before' event listener to set closure context
+    eleventyConfig.on('eleventy.before', function(args){ 
+        outputMode = args.outputMode;
+        if(!isDryRun()) writer = new PdfWriter(srcIsCli ? output : undefined);
+    });
     
-    // implement a pseudo ns for all shortcodes and filters; async shortcodes have separate API
+    // d11ty sync shortcodes
     let { shortcodes, filters } = PLUGIN_API;
     if(shortcodes){
         eleventyConfig.addShortcode(NS, function(cmdStr, ...rest){
+            // if no cmd is provided - e.g. {% doc11ty %} in the template - invoke the "include" function
+            if(!cmdStr){
+                let { inputPath } = this.page;
+                docs.add(inputPath);
+
+                return '';
+            }
+            // else command / args provided
             let { cmd, args } = interpretCmd(cmdStr, ...rest);
+            // get the function and bind closure variables
             let fn = shortcodes[cmd];
+            // call function, always passing d11ty context as first arg
+            let ctxt = { writer };
             if(args && args.length > 0){
-                return fn(...args);
+                return fn(ctxt, ...args);
             }
             
-            return fn();
+            return fn(ctxt);
         });
     }
+
+    // nod11ty shortcode to ensure d11ty ignores a file
+    eleventyConfig.addShortcode(`no${NS}`, function(){
+        let { inputPath } = this.page;
+        ignores.add(inputPath);
+
+        return '';
+    });
+
+    // _d11ty paired shortcode
+    eleventyConfig.addPairedShortcode(`_${NS}`, function(content, ...rest){
+        rest = rest.length > 1 ? rest : rest[0].split(' ').map(str => str.trim()).filter(str => str.length > 0);
+        let first = rest[0];
+        let explicitTag = HTML_TAGS.paired.has(first) || HTML_TAGS.unpaired.has(first) ? rest.shift() : undefined;
+        let unpairedTag = explicitTag ? HTML_TAGS.unpaired.has(explicitTag) : undefined;
+        const classReducer = (prev, curr)=>{
+            if(curr) prev = prev + ' ' + curr; 
+
+            return prev;
+        }
+
+        let tag = explicitTag ? explicitTag : 'div',
+            wrapper = `<${tag} class="${rest.reduce(classReducer, '')}" ${unpairedTag ? '/' : ''}>{{content}}${unpairedTag ? '' : `</${tag}>`}`
+            changed = wrapper.replace('{{content}}', content);
+
+        return changed;
+    });
+
+    // d11ty filters (async - note that Handlebars does not support)
     if(filters){
         eleventyConfig.addFilter(NS, async function(cmdStr, ...rest){
             let { cmd, args } = interpretCmd(cmdStr, ...rest);
@@ -197,40 +205,21 @@ function plugin(eleventyConfig, pluginConfig){
         });
     }
 
-    // paired d11ty; must have underscore (_) as prefix
-    eleventyConfig.addPairedShortcode(`_${NS}`, function(content, ...rest){
-        const classReducer = (prev, curr)=>{
-            if(curr) prev = prev + ' ' + curr; 
-
-            return prev;
-        }
-        let changed = `<div class="${rest.reduce(classReducer, '')}">${content}</div>`;
-
-        return changed;
-    });
-    
-    
-    // 'before' event listener to set closure context including output mode
-    eleventyConfig.on('eleventy.before', function(args){ 
-        outputMode = args.outputMode;
-        dir = args.dir;
-    });
-
     // transformer
     eleventyConfig.addTransform(NS, async function(content){
         // in all cases append the d11ty css to enable print page breaks
-        content = content.replace(
+        content = content.replace( // TODO remove
             '</head>',
             pageBreakCss + '</head>'
         );
-
-        if(!writePdf()) return content;
         
         let { inputPath, outputPath } = this;
 
+        if(isDryRun() || ignores.has(inputPath)) return content;
+
         if(outputPath && outputPath.endsWith('.html') && content){
             // generate PDFs async and do not await each result; will Promise.all() in 'eleventy-after' listener
-            docMap.set(inputPath, getPdfBuffer(content, pluginConfig.pdfOptions));
+            bufferMap.set(inputPath, writer.getPdfBuffer(content, pluginConfig.pdfOptions));
         }
 
         return content;
@@ -238,13 +227,16 @@ function plugin(eleventyConfig, pluginConfig){
 
     // after event listener; again, arrow function to maintain closure var access
     eleventyConfig.on('eleventy.after', async function(args){
+
+        if(isDryRun()) return; // do not create PDFs on dry run
+
         let { results } = args;
         
         // ensure all pdf buffers have resolved
-        let buffers = await Promise.all(docMap.values());
+        let buffers = await Promise.all(bufferMap.values());
         let docs = {},
             ctr = 0;
-        for(let inputPath of Array.from(docMap.keys())){
+        for(let inputPath of Array.from(bufferMap.keys())){
             docs[inputPath] = buffers[ctr];
             ctr++;
         }
@@ -253,24 +245,19 @@ function plugin(eleventyConfig, pluginConfig){
         if(!results || results.length === 0){ // just write the PDFs to their corresponding input path
             for(let inputPath in docs){
                 filename = inputPath.replace('.md', '.pdf');
-                await writePdfToFs(filename, docs[inputPath]);
+                await writer.writePdfToFs(filename, docs[inputPath]);
             }
         } else{
             for(let result of results){
                 let { inputPath, outputPath } = result;
                 if(docs[inputPath]){
                     filename = outputPath.replace('.html', '.pdf');
-                    await writePdfToFs(filename, docs[inputPath]);
+                    await writer.writePdfToFs(filename, docs[inputPath]);
                 }
             }
         }
 
         // TODO handle collate here via pdf-lib
-        
-        // close ppt
-        if(ppt){
-            await ppt.close();
-        }
     });
 }
 

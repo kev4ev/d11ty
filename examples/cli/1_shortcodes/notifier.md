@@ -1,6 +1,7 @@
 # Let's do some notifyin'
 
 {% _d11ty 'notification', 'is-success' %}
+
 Didn't know what time it was, the lights were low
 I leaned back on my radio
 Some cat was laying down some rock 'n' roll
@@ -8,4 +9,5 @@ Some cat was laying down some rock 'n' roll
 Then the loud sound did seem to fade
 Came back like a slow voice on a wave of phase
 That weren't no DJ, that was hazy cosmic jive
+
 {% end_d11ty %}
