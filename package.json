@@ -1,44 +1,44 @@
 {
-  "bin": "cli.js",
-  "name": "d11ty",
-  "version": "0.4.2",
-  "description": "Transform your markdown into beautiful PDFs",
-  "main": "main.js",
-  "scripts": {
-    "inspect:cli": "node --inspect-brk cli.js",
-    "inspect:plugin": "npm exec --node-options='--inspect-brk' -- eleventy",
-    "prepublishOnly": "read -p 'release type (major|minor|patch): ' RELEASE_TYPE && RELEASE_TYPE=$RELEASE_TYPE node scripts/prepublishOnly.js"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/kev4ev/d11ty.git"
-  },
-  "keywords": [
-    "eleventy",
-    "11ty",
-    "markdown",
-    "pdf"
-  ],
-  "author": "kev4ev",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/kev4ev/d11ty/issues"
-  },
-  "engines": {
-    "node": ">=16.0.0"
-  },
-  "homepage": "https://github.com/kev4ev/d11ty#readme",
-  "dependencies": {
-    "@11ty/eleventy": "^2.0.0-canary.15",
-    "chalk": "^5.0.1",
-    "commander": "^9.4.0",
-    "html-tags": "^3.2.0",
-    "http-server": "^14.1.1",
-    "inquirer": "^9.1.1",
-    "pdf-lib": "^1.17.1",
-    "puppeteer": "^17.1.3"
-  },
-  "devDependencies": {
-    "semver": "^7.3.7"
-  }
+    "bin": "cli.js",
+    "name": "d11ty",
+    "version": "0.4.2",
+    "description": "Transform your markdown into beautiful PDFs",
+    "main": "main.js",
+    "scripts": {
+        "inspect:cli": "node --inspect-brk cli.js",
+        "inspect:plugin": "npm exec --node-options='--inspect-brk' -- eleventy",
+        "prepublishOnly": "read -p 'release type (major|minor|patch): ' RELEASE_TYPE && RELEASE_TYPE=$RELEASE_TYPE node scripts/prepublishOnly.js"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/kev4ev/d11ty.git"
+    },
+    "keywords": [
+        "eleventy",
+        "11ty",
+        "markdown",
+        "pdf"
+    ],
+    "author": "kev4ev",
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/kev4ev/d11ty/issues"
+    },
+    "engines": {
+        "node": ">=16.0.0"
+    },
+    "homepage": "https://github.com/kev4ev/d11ty#readme",
+    "dependencies": {
+        "@11ty/eleventy": "^2.0.0-canary.15",
+        "chalk": "^5.0.1",
+        "commander": "^9.4.0",
+        "html-tags": "^3.2.0",
+        "http-server": "^14.1.1",
+        "inquirer": "^9.1.1",
+        "pdf-lib": "^1.17.1",
+        "puppeteer": "^17.1.3"
+    },
+    "devDependencies": {
+        "semver": "^7.3.7"
+    }
 }
