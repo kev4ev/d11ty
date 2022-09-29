@@ -1,5 +1,4 @@
 const fs = require('fs/promises');
-const fssync = require('fs');
 const path = require('path');
 const PdfWriter = require('./lib/PdfWriter');
 
@@ -36,23 +35,31 @@ let INPUT_RAW,
         if(!_inputAbs) _inputAbs = path.resolve(process.cwd(), getInputDir());
 
         return _inputAbs;
-    },
-    getDefaultAbs = () => {
-        return `${getInputAbs()}/${DEF_DIR}`;
-    }
+    };
 
 class PluginConfig{
     /**
      * constructor
      * @param {object} [config] config object
-     * @param {boolean} [config.collate] whether html should be collated to a single file, or not
      * @param {string} [config.output] path spec to output directory when collating
      * @param {boolean} [config.explicit] when true, only files with the {% d11ty %} shortcode will be written to PDF
+     * @param {boolean} [config.collate] whether html should be collated to a single file, or not
+     * @param {string} [config.collateName] when collating, the name of the output PDF (defaults to "collate.pdf")
      */
     constructor(config={}){
-        this.collate = config.collate;
         this.output = config.output;
         this.explicit = config.explicit;
+        this.collate = config.collate;
+        this.collateName = (()=>{
+            let { name } = config;
+            // default to collate.pdf
+            if(!name || name.length === 0) return 'collate.pdf';
+            // else remove all directory references and ensure filename ends with '.pdf'
+            let rawFname = path.basename(),
+                ext = rawFname.split('.').reverse()[0];
+
+            return rawFname === ext ? `${rawFname}.pdf` : rawFname.replace(ext, '.pdf');
+        })();
     }
     
     /**
@@ -68,13 +75,25 @@ class PluginConfig{
     }
 }
 
+
+
 // all filters and shortcodes
 const PLUGIN_API = (()=>{
-
-    // closure variable to hold bulma css when used from command line
-    let bulma = {};
-
     return {
+        // filters always receive a ctxt value from the plugin() fn, as well as the value that was piped to it in the template
+        filters: {
+            collate: function(ctxt, collection){
+                let { docs, caller } = ctxt;
+                let suffix = caller.split('.').reverse()[0],
+                    outputPath = caller.replace(suffix, '.pdf');
+                docs.add({
+                    outputPath, 
+                    files: collection.map(page => page.inputPath)
+                });
+
+                return outputPath;
+            }
+        },
         // shortcodes always receive a d11ty-created ctxt variable as first arg, if they want to use it
         shortcodes: {
             pb: () => '<div class="d11ty-page-break"></div>',
@@ -119,11 +138,10 @@ function interpretCmd(cmdStr, ...rest){
  */
 function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
     
-    // closure variables; TODO set explicit/implicit
-    let { srcIsCli, collate, explicit } = pluginConfig;
-    let { output } = eleventyConfig.dir;
-    let outputMode,
-        implicitMode,
+    // closure variables
+    let { srcIsCli, collate, collateName, explicit } = pluginConfig;
+    let implicitMode = srcIsCli && !explicit,
+        outputMode,
         isDryRun = ()=>{
             return outputMode !== 'fs' && !srcIsCli;
         };
@@ -134,10 +152,12 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
      * @type {PdfWriter}
      */
     let writer;
+    let { pdfOptions } = pluginConfig;
+
     // 'before' event listener to set closure context
     eleventyConfig.on('eleventy.before', function(args){ 
         outputMode = args.outputMode;
-        if(!isDryRun()) writer = new PdfWriter(srcIsCli ? output : undefined);
+        if(!isDryRun()) writer = new PdfWriter(eleventyConfig.dir.outputPath);
     });
     
     // d11ty sync shortcodes
@@ -192,81 +212,115 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
         return changed;
     });
 
-    // d11ty filters (async - note that Handlebars does not support)
+    // d11ty-* filters (note that Handlebars does not support async)
     if(filters){
-        eleventyConfig.addFilter(NS, async function(cmdStr, ...rest){
-            let { cmd, args } = interpretCmd(cmdStr, ...rest);
-            let fn = filters[cmd];
-            if(args && args.length > 0){
-                return await fn(...args);
-            }
+        Object.keys(filters).forEach(filter => {
+            let name = `${NS}-${filter}`;
+            eleventyConfig.addFilter(name, async (pipedValue) => {
+                let { inputPath } = this;
+                let ctxt = { docs, caller: inputPath }, 
+                    targetFn = filters[filter]; 
 
-            return await fn();
+                return await targetFn(ctxt, pipedValue);
+            });
         });
     }
 
     // transformer
     eleventyConfig.addTransform(NS, async function(content){
-        // in all cases append the d11ty css to enable print page breaks
-        content = content.replace( // TODO remove
+        // only add docs in the transform if running from CLI and in implicit mode or doc explicitly added to docs
+        if(srcIsCli){
+            let { inputPath, outputPath } = this;
+    
+            let eligible = !isDryRun() && outputPath && outputPath.endsWith('.html') && !ignores.has(inputPath),
+                writeNow = eligible && (implicitMode || docs.has(inputPath));
+    
+            if(writeNow){
+                docs.add(inputPath);
+                bufferMap.set(inputPath, writer.getPdfBuffer(content, pdfOptions));
+            }
+        }
+        // in all cases append the d11ty page break css and return content
+        content = content.replace(
             '</head>',
             pageBreakCss + '</head>'
         );
         
-        let { inputPath, outputPath } = this;
-
-        if(isDryRun() || ignores.has(inputPath)) return content;
-
-        if(outputPath && outputPath.endsWith('.html') && content){
-            // generate PDFs async and do not await each result; will Promise.all() in 'eleventy-after' listener
-            bufferMap.set(inputPath, writer.getPdfBuffer(content, pluginConfig.pdfOptions));
-        }
-
         return content;
     });
 
-    // after event listener; again, arrow function to maintain closure var access
+    // after event listener, writes files to the fs
     eleventyConfig.on('eleventy.after', async function(args){
+        
+        if(isDryRun()) return;
 
-        if(isDryRun()) return; // do not create PDFs on dry run
-
+        // convert docs from Set to straight Array
+        docs = Array.from(docs);
+        
+        // if src is not cli then begin buffering all docs that need to be written
         let { results } = args;
-        
-        // ensure all pdf buffers have resolved
-        let buffers = await Promise.all(bufferMap.values());
-        let docs = {},
-            ctr = 0;
-        for(let inputPath of Array.from(bufferMap.keys())){
-            docs[inputPath] = buffers[ctr];
-            ctr++;
-        }
-        
-        let filename;
-        if(!results || results.length === 0){ // just write the PDFs to their corresponding input path
-            for(let inputPath in docs){
-                filename = inputPath.replace('.md', '.pdf');
-                await writer.writePdfToFs(filename, docs[inputPath]);
-            }
-        } else{
-            for(let result of results){
-                let { inputPath, outputPath } = result;
-                if(docs[inputPath]){
-                    filename = outputPath.replace('.html', '.pdf');
-                    await writer.writePdfToFs(filename, docs[inputPath]);
+        let resultHash;
+        if(!srcIsCli && results && results.length > 0){
+            // convert to a hash map
+            resultHash = results.reduce((prev, curr)=>{
+                if(curr && curr.inputPath){
+                    let { inputPath } = curr;
+                    prev[inputPath] = curr;
                 }
+
+                return prev;
+            }, {});
+            // iterate docs and add to buffermap from results
+            for(let doc of docs){
+                // skip all collates (objects)
+                if(typeof doc !== 'string' || !resultHash[doc]) continue;
+                let { outputPath } = resultHash[doc];
+                bufferMap.set(doc, writer.getPdfBuffer(outputPath, pdfOptions, true));
             }
         }
 
-        // TODO handle collate here via pdf-lib
+        // wait for all pdf buffers have resolved and reconstitute a hash
+        let buffers = await Promise.all(bufferMap.values()); 
+        let fileHash = Array.from(bufferMap.keys()).reduce((prev, curr, index) => {
+            if(curr) prev[curr] = buffers[index];
+
+            return prev;
+        }, {});
+        
+        // if srcIsCli and collate option passed, flatten docs to a single-item array
+        if(srcIsCli && collate){
+            let initial = { outputPath: `${getInputAbs()}/${collateName}`, files: [] };
+            docs = docs.reduce((prev, curr)=>{
+                if(curr) prev[0].files.push(curr);
+
+                return prev;
+            }, [initial]);
+        }
+
+        // iterate docs and write to the fs at appropriate locations
+        let filename;
+        for(let doc of docs){
+            let buffer = fileHash[doc];
+            if(typeof doc === 'string'){
+                filename = (()=>{
+                    if(srcIsCli) return doc.replace('.md', '.pdf');
+
+                    return 
+                })();
+                await writer.writePdfToFs(filename, buffer);
+            } else if(typeof doc === 'object'){ // collate
+                let { outputPath, files } = doc;
+                let buffers = files.map(file => fileHash[file]);
+                await writer.collate(buffers, outputPath);
+            }
+        }
     });
 }
 
 /**
  * 
  * @param {string} input input file or directory of markdown files to convert to PDF
- * @param {object} [flags] options and args passed from a CLI invocation
- * @param {string} [flags.output] output directory where PDF file(s) should be generated
- * @param {boolean} [flags.collate] when true, output files should be collated into a single file
+ * @param {PluginConfig} pluginConfig the config options passed from command line
  */
 async function runFromCli(input, pluginConfig=new PluginConfig()){
     try{
@@ -278,7 +332,7 @@ async function runFromCli(input, pluginConfig=new PluginConfig()){
         const rt = require('@11ty/eleventy');
         const eleventy = new rt(undefined, undefined, {
             configPath: `${__dirname}/${DEF_DIR}/.eleventy.default.js`, // a base config file is needed
-            config: function(eleventyConfig){ // cli config, adds plugin
+            config: function(eleventyConfig){ // "user config"
                 // add the plugin
                 eleventyConfig.addPlugin(plugin, pluginConfig);
             }
@@ -293,9 +347,8 @@ async function runFromCli(input, pluginConfig=new PluginConfig()){
         }
         process.on('SIGINT', async (signal, err) => await throwToTeardown(err));
         process.on('uncaughtException', async (err, origin) => await throwToTeardown(err));
-        // convert files to stream and convert to pdf with puppeteer
-        let { html } = pluginConfig;
-        html ? await eleventy.write() : await eleventy.toNDJSON();
+        // kickoff eleventy 
+        await eleventy.toNDJSON();
         // teardown temporary dir
         await manageDependencies(input, true);
     } catch(err){
