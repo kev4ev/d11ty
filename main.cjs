@@ -51,11 +51,11 @@ class PluginConfig{
         this.explicit = config.explicit;
         this.collate = config.collate;
         this.collateName = (()=>{
-            let { name } = config;
+            let name = config.collateName;
             // default to collate.pdf
             if(!name || name.length === 0) return 'collate.pdf';
             // else remove all directory references and ensure filename ends with '.pdf'
-            let rawFname = path.basename(),
+            let rawFname = path.basename(name),
                 ext = rawFname.split('.').reverse()[0];
 
             return rawFname === ext ? `${rawFname}.pdf` : rawFname.replace(ext, '.pdf');
