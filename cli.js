@@ -1,12 +1,10 @@
 #! env node
 
-// command line program
-const { program } = require('commander');
-const chalk = import('chalk');
-// logic
-const { cli, PluginConfig } = require('./main.cjs');
 const path = require('path');
+const { program } = require('commander');
 const pkg = require(`${__dirname}/package.json`);
+const PluginConfig = require('./lib/PluginConfig');
+const cliAdapter = require('./lib/cliAdapter');
 
 program
     .version(pkg.version, '-v, --version')
@@ -19,7 +17,7 @@ program
         if(!output) output = path.dirname(input);
 
         try{
-            await cli(input, new PluginConfig({
+            await cliAdapter(input, new PluginConfig({
                 output,
                 explicit,
                 collate,

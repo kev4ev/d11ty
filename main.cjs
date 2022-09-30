@@ -1,12 +1,11 @@
-const fs = require('fs/promises');
 const path = require('path');
 const PdfWriter = require('./lib/PdfWriter');
+const PluginConfig = require('./lib/PluginConfig');
 
 /**
  * @typedef {import('puppeteer').PDFOptions} PDFOptions
  */
 
-const DEF_DIR = '.d11ty_defaults';
 const pageBreakCss = 
     `<style>
         @media print{
@@ -21,61 +20,6 @@ const HTML_TAGS = {
     paired: new Set(require('html-tags')),
     unpaired: new Set(require('html-tags/void'))
 };
-
-// module level variables
-let INPUT_RAW,
-    _inputDir,
-    _inputAbs,
-    getInputDir = () => {
-        if(!_inputDir) _inputDir = INPUT_RAW.endsWith('.md') ? path.dirname(INPUT_RAW) : INPUT_RAW;
-
-        return _inputDir;
-    },
-    getInputAbs = () => {
-        if(!_inputAbs) _inputAbs = path.resolve(process.cwd(), getInputDir());
-
-        return _inputAbs;
-    };
-
-class PluginConfig{
-    /**
-     * constructor
-     * @param {object} [config] config object
-     * @param {string} [config.output] path spec to output directory when collating
-     * @param {boolean} [config.explicit] when true, only files with the {% d11ty %} shortcode will be written to PDF
-     * @param {boolean} [config.collate] whether html should be collated to a single file, or not
-     * @param {string} [config.collateName] when collating, the name of the output PDF (defaults to "collate.pdf")
-     */
-    constructor(config={}){
-        this.output = config.output;
-        this.explicit = config.explicit;
-        this.collate = config.collate;
-        this.collateName = (()=>{
-            let name = config.collateName;
-            // default to collate.pdf
-            if(!name || name.length === 0) return 'collate.pdf';
-            // else remove all directory references and ensure filename ends with '.pdf'
-            let rawFname = path.basename(name),
-                ext = rawFname.split('.').reverse()[0];
-
-            return rawFname === ext ? `${rawFname}.pdf` : rawFname.replace(ext, '.pdf');
-        })();
-    }
-    
-    /**
-     * can only be set programmatically so property assures plugin is being utilized from CLI and not
-     * as eleventy plugin
-     */
-    setSrcIsCli(){
-        this._srcIsCli = true;
-    }
-    
-    get srcIsCli(){
-        return this._srcIsCli;
-    }
-}
-
-
 
 // all filters and shortcodes
 const PLUGIN_API = (()=>{
@@ -99,8 +43,9 @@ const PLUGIN_API = (()=>{
             pb: () => '<div class="d11ty-page-break"></div>',
             getBulmaPath: (ctxt, version, min) =>{ // for cli use only
                 if(!version) version = '0.9.4';
-                if(INPUT_RAW){
-                    return `http://localhost:${ctxt.writer.servePort}/.d11ty_defaults/css/bulma.${version}.css`;
+                let { srcIsCli, writer } = ctxt;
+                if(srcIsCli){
+                    return `http://localhost:${writer.servePort}/.d11ty_defaults/css/bulma.${version}.css`;
                 } else{
                     throw new Error('Shortcode "getBulmaPath" may only be used in CLI context');
                 }
@@ -139,7 +84,7 @@ function interpretCmd(cmdStr, ...rest){
 function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
     
     // closure variables
-    let { srcIsCli, collate, collateName, explicit } = pluginConfig;
+    let { srcIsCli, cliContext, collate, collateName, explicit } = pluginConfig;
     let implicitMode = srcIsCli && !explicit,
         outputMode,
         isDryRun = ()=>{
@@ -157,7 +102,7 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
     // 'before' event listener to set closure context
     eleventyConfig.on('eleventy.before', function(args){ 
         outputMode = args.outputMode;
-        if(!isDryRun()) writer = new PdfWriter(srcIsCli ? getInputDir() : eleventyConfig.dir.output);
+        if(!isDryRun()) writer = new PdfWriter(srcIsCli ? cliContext.inputAbsolute() : eleventyConfig.dir.output);
     });
     
     // d11ty sync shortcodes
@@ -177,7 +122,7 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
             // get the function and bind closure variables
             let fn = shortcodes[cmd];
             // call function, always passing d11ty context as first arg
-            let ctxt = { writer };
+            let ctxt = { srcIsCli, writer };
             if(args && args.length > 0){
                 return fn(ctxt, ...args);
             }
@@ -320,67 +265,4 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
     });
 }
 
-/**
- * 
- * @param {string} input input file or directory of markdown files to convert to PDF
- * @param {PluginConfig} pluginConfig the config options passed from command line
- */
-async function runFromCli(input, pluginConfig=new PluginConfig()){
-    try{
-        // set pluginConfig cli invoaction
-        pluginConfig.setSrcIsCli();
-        // set singleton so that it can be retrieved; can only be one per process invocation
-        INPUT_RAW = input;
-        // dynamically import/instantiate eleventy and apply cli configs to it
-        const rt = require('@11ty/eleventy');
-        const eleventy = new rt(undefined, undefined, {
-            configPath: `${__dirname}/${DEF_DIR}/.eleventy.default.js`, // a base config file is needed
-            config: function(eleventyConfig){ // "user config"
-                // add the plugin
-                eleventyConfig.addPlugin(plugin, pluginConfig);
-            }
-        });
-        // cp temporary dir with _data and _includes directories
-        await manageDependencies(input);
-        // add SIGINT (supported on all platforms) and process listeners to ensure temp dir is torn down in all cases
-        const throwToTeardown = async (err)=>{
-            await manageDependencies(input, true);
-
-            process.exit(1);
-        }
-        process.on('SIGINT', async (signal, err) => await throwToTeardown(err));
-        process.on('uncaughtException', async (err, origin) => await throwToTeardown(err));
-        // kickoff eleventy 
-        await eleventy.toNDJSON();
-        // teardown temporary dir
-        await manageDependencies(input, true);
-    } catch(err){
-        // teardown symlinks
-        await manageDependencies(input, true);
-
-        throw err;
-    }
-}
-
-async function manageDependencies(input, rm){
-    let linkTarget = `${getInputDir()}/${DEF_DIR}`;
-    if(rm){
-        await fs.rm(linkTarget, { recursive: true });
-    } else{
-        await fs.cp(`${__dirname}/${DEF_DIR}`, linkTarget, {
-            errorOnExist: true, 
-            recursive: true
-        });
-    }
-}
-
 module.exports = plugin;
-module.exports.cli = runFromCli;
-module.exports.PluginConfig = PluginConfig;
-module.exports.getCliContext = () => {
-    return {
-        inputRaw: INPUT_RAW, 
-        inputDir: getInputDir(),
-        defaultsDir: DEF_DIR
-    }
-}
