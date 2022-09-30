@@ -8,12 +8,17 @@
     <link rel="stylesheet" href="{{ '/public/css/bulma.0.9.4.css' | url }}">
 </head>
 <body>
+{% set noprint %}
+    {% d11ty 'noPrint' %}
+{% endset %}
+
     {% _d11ty 'container' %}
 
         {% _d11ty 'columns my-6 mx-6' %}
         
-            <!-- NAV -->
-            {% _d11ty 'column is-3' %}
+            <!-- NAV, do not print to CSS -->
+            
+            {% _d11ty noprint, 'column is-3' %}
             
                 {% _d11ty 'aside menu' %}
                 
@@ -27,6 +32,7 @@
                     
                         <li><a href="/">Home</a></li>
                         <li><a href="/examples">Examples</a></li>
+                        <li><a href="/collated">Collated</a></li>
                     
                     {% end_d11ty %}
                 

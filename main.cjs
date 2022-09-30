@@ -12,29 +12,34 @@ const PLUGIN_API = (()=>{
     return {
         // filters always receive a ctxt value from the plugin() fn, as well as the value that was piped to it in the template
         filters: {
-            collate: function(ctxt, pages){
+            collate(ctxt, pages, outName){
+                if(!outName) throw new Error('You need to provide a unique name for your collated file');
                 let { docs, ignores, caller } = ctxt;
                 let { outputPath } = caller;
-                let fname = path.basename(outputPath);
-                outputPath = outputPath.replace(fname, 'collate.pdf');
+                let inName = path.basename(outputPath);
+                outName = outName.trim().split('/').reverse()[0];
+                outName = outName.endsWith('.pdf') ? outName : `${outName}.pdf`;
+                outputPath = outputPath.replace(inName, outName);
                 // filter ignored pages and add each page to docs
                 pages = pages.map(page => page.inputPath).filter(inputPath => !ignores.has(inputPath));
                 pages.forEach(inputPath => {
                     docs.add(inputPath);
                 });
                 // add the collation object
-                docs.add({
+                let collate = {
                     outputPath, 
                     files: pages
-                });
+                };
+                docs.add(collate);
 
-                return outputPath;
+                return `./${outName}`;
             }
         },
         // shortcodes always receive a d11ty-created ctxt variable as first arg, if they want to use it
         shortcodes: {
             pb: () => `<div class="${CLASS_PAGE_BREAK}"></div>`,
-            getBulmaPath: (ctxt, version, min) =>{ // for cli use only
+            noPrint: ()=> CLASS_NO_PRINT,
+            getBulmaPath(ctxt, version, min){ // for cli use only
                 if(!version) version = '0.9.4';
                 let { srcIsCli, writer } = ctxt;
                 if(srcIsCli){
@@ -160,9 +165,9 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
     if(filters){
         Object.keys(filters).forEach(filter => {
             let name = `${NS}_${filter}`;
-            eleventyConfig.addFilter(name, function(pipedValue){
+            eleventyConfig.addFilter(name, function(pipedValue, ...rest){
                 let { inputPath, outputPath } = this.ctx.page;
-                let ctxt = { 
+                let ctxt = {
                     docs, 
                     ignores, 
                     caller: { 
@@ -172,7 +177,7 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
                 }; 
                 let targetFn = filters[filter]; 
 
-                return targetFn(ctxt, pipedValue);
+                return targetFn(ctxt, pipedValue, ...rest);
             });
         });
     }

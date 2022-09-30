@@ -25,7 +25,7 @@
     "d11ty": {
         "scope": "markdown, html",
         "prefix": "d1", 
-        "body": "{% d11ty ${1|pb|} %}",
+        "body": "{% d11ty '${1|pb,noPrint|}' %}",
         "description": "d11ty shortcodes"
     },
     "d11ty-": {
