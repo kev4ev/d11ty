@@ -1,25 +1,11 @@
 const path = require('path');
-const PdfWriter = require('./lib/PdfWriter');
+const { getWriter } = require('./lib/PdfWriter');
 const PluginConfig = require('./lib/PluginConfig');
+const { CLASS_NO_PRINT, CLASS_PAGE_BREAK, D11TY_CSS, HTML_TAGS, NS } = require('./lib/CONSTANTS');
 
 /**
  * @typedef {import('puppeteer').PDFOptions} PDFOptions
  */
-
-const pageBreakCss = 
-    `<style>
-        @media print{
-            div.d11ty-page-break{
-                page-break-after: always !important;
-            }
-        }
-    </style>
-`;
-const NS = `d11ty`;
-const HTML_TAGS = {
-    paired: new Set(require('html-tags')),
-    unpaired: new Set(require('html-tags/void'))
-};
 
 // all filters and shortcodes
 const PLUGIN_API = (()=>{
@@ -40,7 +26,7 @@ const PLUGIN_API = (()=>{
         },
         // shortcodes always receive a d11ty-created ctxt variable as first arg, if they want to use it
         shortcodes: {
-            pb: () => '<div class="d11ty-page-break"></div>',
+            pb: () => `<div class="${CLASS_PAGE_BREAK}"></div>`,
             getBulmaPath: (ctxt, version, min) =>{ // for cli use only
                 if(!version) version = '0.9.4';
                 let { srcIsCli, writer } = ctxt;
@@ -102,7 +88,7 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
     // 'before' event listener to set closure context
     eleventyConfig.on('eleventy.before', function(args){ 
         outputMode = args.outputMode;
-        if(!isDryRun()) writer = new PdfWriter(srcIsCli ? cliContext.inputAbsolute() : eleventyConfig.dir.output);
+        if(!isDryRun()) writer = getWriter(srcIsCli ? cliContext.inputAbsolute() : eleventyConfig.dir.output);
     });
     
     // d11ty sync shortcodes
@@ -158,6 +144,11 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
         return changed;
     });
 
+    // _nod11ty paired shortcode, wrapped content will not appear when 
+    eleventyConfig.addPairedShortcode(`_no${NS}`, function(content, tag='div'){
+        return `<${tag} class="${CLASS_NO_PRINT}">${content}</${tag}>`
+    });
+
     // d11ty-* filters (note that Handlebars does not support async)
     if(filters){
         Object.keys(filters).forEach(filter => {
@@ -186,10 +177,10 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
                 bufferMap.set(inputPath, writer.getPdfBuffer(content, pdfOptions));
             }
         }
-        // in all cases append the d11ty page break css and return content
+        // in all cases append the css needed to apply d11ty styling
         content = content.replace(
             '</head>',
-            pageBreakCss + '</head>'
+            D11TY_CSS + '</head>'
         );
         
         return content;
@@ -199,9 +190,6 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
     eleventyConfig.on('eleventy.after', async function(args){
         
         if(isDryRun()) return;
-
-        // convert docs from Set to straight Array
-        docs = Array.from(docs);
         
         // if src is not cli then begin buffering all docs that need to be written
         let { results } = args;
@@ -237,7 +225,7 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
         // if srcIsCli and collate option passed, flatten docs to a single-item array
         if(srcIsCli && collate){
             let initial = { outputPath: `${getInputAbs()}/${collateName}`, files: [] };
-            docs = docs.reduce((prev, curr)=>{
+            docs = Array.from(docs).reduce((prev, curr)=>{
                 if(curr) prev[0].files.push(curr);
 
                 return prev;

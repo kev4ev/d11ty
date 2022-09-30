@@ -12,6 +12,11 @@
                 page-break-after: always !important;
             }
         }
+        @media print{
+            .d11ty-no-print{
+                display: none !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -51,9 +56,11 @@
 <h3 class=" subtitle" >
 <p>(and your markup, too!)</p>
 </h3>
+<span class="d11ty-no-print">
 <p><a href="
     index.pdf
 " target="_blank">View as PDF</a></p>
+</span>
 
 
             </div>

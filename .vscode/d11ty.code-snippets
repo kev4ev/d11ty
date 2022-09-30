@@ -11,6 +11,17 @@
         ],
         "description": "_d11ty paired shortcode allows you to wrap content in a div (or other element when passed as first word in classes string) with provided classes"
     },
+    "_nod11ty": {
+        "scope": "markdown, html",
+        "prefix": "d1",
+        "body": [
+            "{% _nod11ty '${1:optionalTagName}' %}",
+            "",
+            "${0}",
+            "{% end_nod11ty %}"
+        ],
+        "description": "content wrapped in this shortcode will not be printed to PDF; may provide the tag to wrap content - defaults to div"
+    },
     "d11ty": {
         "scope": "markdown, html",
         "prefix": "d1", 
