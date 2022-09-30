@@ -1,27 +1,27 @@
 #! env node
 
-// command line program
-const { program } = require('commander');
-const chalk = import('chalk');
-// logic
-const { cli, PluginConfig } = require('./main.cjs');
 const path = require('path');
+const { program } = require('commander');
+const pkg = require(`${__dirname}/package.json`);
+const PluginConfig = require('./lib/PluginConfig');
+const cliAdapter = require('./lib/cliAdapter');
 
 program
-    .option('-c, --collate', 'collate multiple files into a single PDF')
-    .option('-f, --config <path>' , 'relative path from pwd to .d11ty.js config file')
-    .option('-o, --output <path>', 'relative path where PDF file(s) will be created')
-    .option('--html', 'generate html as well as pdf files')
+    .version(pkg.version, '-v, --version')
     .argument('[input]', 'file or directory path to markdown files for conversion', '.')
+    .option('-c, --collate', 'collate multiple files from the input path into a single PDF')
+    .option('-n, --name <name>', 'when collating, the name of the output PDF (defaults to "collate.pdf")')
+    .option('-x, --explicit', 'only print files to PDF that explicitly include the {% d11ty %} shortcode')
     .action(async function(input, flags, cmd){
-        let { collate, output, html } = flags;
+        let { collate, name, output, explicit } = flags;
         if(!output) output = path.dirname(input);
 
         try{
-            await cli(input, new PluginConfig({
-                collate,
+            await cliAdapter(input, new PluginConfig({
                 output,
-                html
+                explicit,
+                collate,
+                collateName: name
             }));
 
             process.exit(0);

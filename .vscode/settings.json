@@ -3,5 +3,9 @@
         "editor.unicodeHighlight.ambiguousCharacters": false,
         "editor.wordWrap": "on",
         "editor.quickSuggestions": true
-    }
+    }, 
+    "emmet.includeLanguages": {
+        "markdown": "html"
+    },
+    "emmet.excludeLanguages": []
 }
