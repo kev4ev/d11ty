@@ -12,13 +12,20 @@ const PLUGIN_API = (()=>{
     return {
         // filters always receive a ctxt value from the plugin() fn, as well as the value that was piped to it in the template
         filters: {
-            collate: function(ctxt, collection){
-                let { docs, caller } = ctxt;
-                let suffix = caller.split('.').reverse()[0],
-                    outputPath = caller.replace(suffix, '.pdf');
+            collate: function(ctxt, pages){
+                let { docs, ignores, caller } = ctxt;
+                let { outputPath } = caller;
+                let fname = path.basename(outputPath);
+                outputPath = outputPath.replace(fname, 'collate.pdf');
+                // filter ignored pages and add each page to docs
+                pages = pages.map(page => page.inputPath).filter(inputPath => !ignores.has(inputPath));
+                pages.forEach(inputPath => {
+                    docs.add(inputPath);
+                });
+                // add the collation object
                 docs.add({
                     outputPath, 
-                    files: collection.map(page => page.inputPath)
+                    files: pages
                 });
 
                 return outputPath;
@@ -152,13 +159,20 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
     // d11ty-* filters (note that Handlebars does not support async)
     if(filters){
         Object.keys(filters).forEach(filter => {
-            let name = `${NS}-${filter}`;
-            eleventyConfig.addFilter(name, async (pipedValue) => {
-                let { inputPath } = this;
-                let ctxt = { docs, caller: inputPath }, 
-                    targetFn = filters[filter]; 
+            let name = `${NS}_${filter}`;
+            eleventyConfig.addFilter(name, function(pipedValue){
+                let { inputPath, outputPath } = this.ctx.page;
+                let ctxt = { 
+                    docs, 
+                    ignores, 
+                    caller: { 
+                        inputPath, 
+                        outputPath
+                    } 
+                }; 
+                let targetFn = filters[filter]; 
 
-                return await targetFn(ctxt, pipedValue);
+                return targetFn(ctxt, pipedValue);
             });
         });
     }
