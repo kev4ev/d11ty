@@ -1,6 +1,6 @@
 {
     "_d11ty": {
-        "scope": "markdown",
+        "scope": "markdown, html",
         "prefix": "d1",
         "body": [
             "{% _d11ty '${1:classes string}' %}",
@@ -12,19 +12,19 @@
         "description": "_d11ty paired shortcode allows you to wrap content in a div (or other element when passed as first word in classes string) with provided classes"
     },
     "d11ty": {
-        "scope": "markdown",
+        "scope": "markdown, html",
         "prefix": "d1", 
         "body": "{% d11ty ${1|pb|} %}",
         "description": "d11ty shortcodes"
     },
     "d11ty-": {
-        "scope": "markdown",
+        "scope": "markdown, html",
         "prefix": "d1",
         "body": "{{ ${0} | d11ty-${1|collate|} }}",
         "description": "d11ty-* filters allows you to pipe a value into the indicated filter for transformation"
     },
     "nod11ty": {
-        "scope": "markdown",
+        "scope": "markdown, html",
         "prefix": "d1", 
         "body": "{% nod11ty %}",
         "description": "shortcode to make d11ty ignore this file"

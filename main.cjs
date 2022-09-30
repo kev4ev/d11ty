@@ -157,7 +157,7 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
     // 'before' event listener to set closure context
     eleventyConfig.on('eleventy.before', function(args){ 
         outputMode = args.outputMode;
-        if(!isDryRun()) writer = new PdfWriter(eleventyConfig.dir.outputPath);
+        if(!isDryRun()) writer = new PdfWriter(srcIsCli ? getInputDir() : eleventyConfig.dir.output);
     });
     
     // d11ty sync shortcodes
@@ -166,10 +166,11 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
         eleventyConfig.addShortcode(NS, function(cmdStr, ...rest){
             // if no cmd is provided - e.g. {% doc11ty %} in the template - invoke the "include" function
             if(!cmdStr){
-                let { inputPath } = this.page;
+                let { inputPath, outputPath } = this.page;
                 docs.add(inputPath);
 
-                return '';
+                // return the name of the pdf back to caller
+                return path.basename(outputPath).replace('.html', '.pdf');
             }
             // else command / args provided
             let { cmd, args } = interpretCmd(cmdStr, ...rest);
@@ -274,8 +275,9 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
             for(let doc of docs){
                 // skip all collates (objects)
                 if(typeof doc !== 'string' || !resultHash[doc]) continue;
-                let { outputPath } = resultHash[doc];
-                bufferMap.set(doc, writer.getPdfBuffer(outputPath, pdfOptions, true));
+                let { url } = resultHash[doc];
+                // url = url.endsWith('.html') ? url : url + 'index.html';
+                bufferMap.set(doc, writer.getPdfBuffer(url, pdfOptions, true));
             }
         }
 
@@ -305,7 +307,8 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
                 filename = (()=>{
                     if(srcIsCli) return doc.replace('.md', '.pdf');
 
-                    return 
+                    let { outputPath } = resultHash[doc];
+                    return outputPath.replace('.html', '.pdf');
                 })();
                 await writer.writePdfToFs(filename, buffer);
             } else if(typeof doc === 'object'){ // collate

@@ -10,8 +10,7 @@
         "prepublishOnly": "read -p 'release type (major|minor|patch): ' RELEASE_TYPE && RELEASE_TYPE=$RELEASE_TYPE node scripts/prepublishOnly.js"
     },
     "repository": {
-        "type": "git",
-        "url": "git+https://github.com/kev4ev/d11ty.git"
+        "url": "https://github.com/kev4ev/d11ty"
     },
     "keywords": [
         "eleventy",
@@ -21,13 +20,10 @@
     ],
     "author": "kev4ev",
     "license": "MIT",
-    "bugs": {
-        "url": "https://github.com/kev4ev/d11ty/issues"
-    },
     "engines": {
         "node": ">=16.0.0"
     },
-    "homepage": "https://github.com/kev4ev/d11ty#readme",
+    "homepage": "kev4ev.github.io",
     "dependencies": {
         "@11ty/eleventy": "^2.0.0-canary.15",
         "chalk": "^5.0.1",
