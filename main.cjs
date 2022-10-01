@@ -10,10 +10,16 @@ const { CLASS_NO_PRINT, CLASS_PAGE_BREAK, D11TY_CSS, HTML_TAGS, NS } = require('
 // all filters and shortcodes
 const PLUGIN_API = (()=>{
     return {
-        // filters always receive a ctxt value from the plugin() fn, as well as the value that was piped to it in the template
-        filters: {
-            collate(ctxt, pages, outName){
-                if(!outName) throw new Error('You need to provide a unique name for your collated file');
+        // shortcodes always receive a d11ty-created ctxt variable as first arg, if they want to use it
+        shortcodes: {
+            collate(ctxt, ...rest){
+                let outName = rest.shift(), 
+                    pages = rest.reduce((prev, curr) => {
+                        if(curr) prev = prev.concat(curr);
+
+                        return prev;
+                    }, []);
+                if(!outName || typeof outName !== 'string') throw new Error('You need to provide a name for your collated file');
                 let { docs, ignores, caller } = ctxt;
                 let { outputPath } = caller;
                 let inName = path.basename(outputPath);
@@ -33,10 +39,7 @@ const PLUGIN_API = (()=>{
                 docs.add(collate);
 
                 return `./${outName}`;
-            }
-        },
-        // shortcodes always receive a d11ty-created ctxt variable as first arg, if they want to use it
-        shortcodes: {
+            },
             pb: () => `<div class="${CLASS_PAGE_BREAK}"></div>`,
             noPrint: ()=> CLASS_NO_PRINT,
             getBulmaPath(ctxt, version, min){ // for cli use only
@@ -103,7 +106,7 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
         if(!isDryRun()) writer = getWriter(srcIsCli ? cliContext.inputAbsolute() : eleventyConfig.dir.output);
     });
     
-    // d11ty sync shortcodes
+    // d11ty sync shortcodes (async shortcodes have a separate API)
     let { shortcodes, filters } = PLUGIN_API;
     if(shortcodes){
         eleventyConfig.addShortcode(NS, function(cmdStr, ...rest){
@@ -120,7 +123,17 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
             // get the function and bind closure variables
             let fn = shortcodes[cmd];
             // call function, always passing d11ty context as first arg
-            let ctxt = { srcIsCli, writer };
+            let { inputPath, outputPath } = this.page;
+            let ctxt = { 
+                srcIsCli, 
+                writer,
+                docs, 
+                ignores, 
+                caller: { 
+                    inputPath, 
+                    outputPath
+                }
+            };
             if(args && args.length > 0){
                 return fn(ctxt, ...args);
             }
@@ -161,22 +174,12 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
         return `<${tag} class="${CLASS_NO_PRINT}">${content}</${tag}>`
     });
 
-    // d11ty-* filters (note that Handlebars does not support async)
+    // d11ty-* filters (future state, currently none)
     if(filters){
         Object.keys(filters).forEach(filter => {
             let name = `${NS}_${filter}`;
             eleventyConfig.addFilter(name, function(pipedValue, ...rest){
-                let { inputPath, outputPath } = this.ctx.page;
-                let ctxt = {
-                    docs, 
-                    ignores, 
-                    caller: { 
-                        inputPath, 
-                        outputPath
-                    } 
-                }; 
-                let targetFn = filters[filter]; 
-
+                // future state, currently no d11ty filters
                 return targetFn(ctxt, pipedValue, ...rest);
             });
         });

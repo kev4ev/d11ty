@@ -25,14 +25,8 @@
     "d11ty": {
         "scope": "markdown, html",
         "prefix": "d1", 
-        "body": "{% d11ty '${1|pb,noPrint|}' %}",
+        "body": "{% d11ty '${1|collate,pb,noPrint|}' %}${0}",
         "description": "d11ty shortcodes"
-    },
-    "d11ty-": {
-        "scope": "markdown, html",
-        "prefix": "d1",
-        "body": "{{ ${0} | d11ty-${1|collate|} }}",
-        "description": "d11ty-* filters allows you to pipe a value into the indicated filter for transformation"
     },
     "nod11ty": {
         "scope": "markdown, html",
