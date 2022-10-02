@@ -232,7 +232,7 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
                 if(!resultHash[inputPath] || bufferMap.has(inputPath)) return;
 
                 let { url } = resultHash[inputPath];
-                bufferMap.set(doc, writer.getPdfBuffer(url, pdfOptions, true));
+                bufferMap.set(inputPath, writer.getPdfBuffer(url, pdfOptions, true));
             }
             for(let doc of docs){
                 // skip all collates (objects)
