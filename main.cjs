@@ -15,7 +15,11 @@ const PLUGIN_API = (()=>{
             collate(ctxt, ...rest){
                 let outName = rest.shift(), 
                     pages = rest.reduce((prev, curr) => {
-                        if(curr) prev = prev.concat(curr);
+                        if(curr){
+                            if(curr.length) prev = prev.concat(curr);
+                            else if (typeof curr === 'object') prev.push(curr);
+                            else throw new Error(`Invalid value ${typeof curr} - only pages and collections (arrays) of pages may be passed`);
+                        }
 
                         return prev;
                     }, []);
@@ -26,11 +30,8 @@ const PLUGIN_API = (()=>{
                 outName = outName.trim().split('/').reverse()[0];
                 outName = outName.endsWith('.pdf') ? outName : `${outName}.pdf`;
                 outputPath = outputPath.replace(inName, outName);
-                // filter ignored pages and add each page to docs
+                // filter out ignored pages
                 pages = pages.map(page => page.inputPath).filter(inputPath => !ignores.has(inputPath));
-                pages.forEach(inputPath => {
-                    docs.add(inputPath);
-                });
                 // add the collation object
                 let collate = {
                     outputPath, 
@@ -227,12 +228,20 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
                 return prev;
             }, {});
             // iterate docs and add to buffermap from results
+            const addToBufferMap = (inputPath) =>{
+                if(!resultHash[inputPath] || bufferMap.has(inputPath)) return;
+
+                let { url } = resultHash[inputPath];
+                bufferMap.set(doc, writer.getPdfBuffer(url, pdfOptions, true));
+            }
             for(let doc of docs){
                 // skip all collates (objects)
-                if(typeof doc !== 'string' || !resultHash[doc]) continue;
-                let { url } = resultHash[doc];
-                // url = url.endsWith('.html') ? url : url + 'index.html';
-                bufferMap.set(doc, writer.getPdfBuffer(url, pdfOptions, true));
+                if(typeof doc === 'object'){
+                    let { files } = doc;
+                    files.forEach(file => addToBufferMap(file));
+                } else{
+                    addToBufferMap(doc);
+                }
             }
         }
 
