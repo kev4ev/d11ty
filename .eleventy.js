@@ -17,6 +17,6 @@ module.exports = function(eleventyConfig){
         },
         markdownTemplateEngine: 'njk', 
         htmlTemplateEngine: 'njk', 
-        pathPrefix: '/myprefix/'
+        pathPrefix: '/d11ty/'
     }
 }
