@@ -1,4 +1,5 @@
 const d11ty = require('d11ty');
+const { EleventyHtmlBasePlugin } = require('@11ty/eleventy');
 
 const input = 'examples/eleventy-plugin/sitedocs';
 
@@ -8,6 +9,7 @@ module.exports = function(eleventyConfig){
     eleventyConfig.addPassthroughCopy(`${input}/public`);
     // add plugins
     eleventyConfig.addPlugin(d11ty);
+    eleventyConfig.addPlugin(EleventyHtmlBasePlugin);
     return {
         dir: {
             input,
