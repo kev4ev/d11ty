@@ -78,6 +78,10 @@ function interpretCmd(cmdStr, ...rest){
 }
 
 /**
+ * @typedef {import('@11ty/eleventy')} EleventyConfig
+ */
+
+/**
  * 
  * @param {object} eleventyConfig eleventyConfiguration
  * @param {PluginConfig} pluginConfig d11ty configuration
@@ -104,7 +108,10 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
     // 'before' event listener to set closure context
     eleventyConfig.on('eleventy.before', function(args){ 
         outputMode = args.outputMode;
-        if(!isDryRun()) writer = getWriter(srcIsCli ? cliContext.inputAbsolute() : eleventyConfig.dir.output);
+        if(!isDryRun()){
+            let servePath = srcIsCli ? cliContext.inputAbsolute() : eleventyConfig.dir.output;
+            writer = getWriter(servePath, eleventyConfig);
+        }
     });
     
     // d11ty sync shortcodes (async shortcodes have a separate API)

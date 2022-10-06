@@ -26,6 +26,7 @@
     "homepage": "kev4ev.github.io",
     "dependencies": {
         "@11ty/eleventy": "^2.0.0-canary.15",
+        "@11ty/eleventy-dev-server": "^1.0.0-canary.14",
         "chalk": "^5.0.1",
         "commander": "^9.4.0",
         "html-tags": "^3.2.0",

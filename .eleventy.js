@@ -13,8 +13,8 @@ module.exports = function(eleventyConfig){
             input,
             output: 'docs'
         },
-        // set nunjucks as default engine
         markdownTemplateEngine: 'njk', 
-        htmlTemplateEngine: 'njk'
+        htmlTemplateEngine: 'njk', 
+        pathPrefix: '/d11ty/'
     }
 }
