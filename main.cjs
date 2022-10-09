@@ -1,5 +1,5 @@
 const path = require('path');
-const { getWriter } = require('./lib/PdfWriter');
+const { initWriter } = require('./lib/PdfWriter');
 const PluginConfig = require('./lib/PluginConfig');
 const { CLASS_NO_PRINT, CLASS_PAGE_BREAK, D11TY_CSS, HTML_TAGS, NS } = require('./lib/CONSTANTS');
 
@@ -110,7 +110,7 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
         outputMode = args.outputMode;
         if(!isDryRun()){
             let servePath = srcIsCli ? cliContext.inputAbsolute() : eleventyConfig.dir.output;
-            writer = getWriter(servePath, eleventyConfig);
+            writer = initWriter(servePath, eleventyConfig);
         }
     });
     
