@@ -253,9 +253,11 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
                 // skip all collates (objects)
                 if(typeof doc === 'object'){
                     let { files } = doc;
-                    files.forEach(file => addToBufferMap(file));
+                    for(let file of files){
+                        await addToBufferMap(file);
+                    }
                 } else{
-                    addToBufferMap(doc);
+                    await addToBufferMap(doc);
                 }
             }
         }
@@ -290,7 +292,7 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
                         let { outputPath } = resultHash[doc];
                         return outputPath.replace('.html', '.pdf');
                     })();
-                    await writeTarget.write();
+                    await writer.write(writeTarget);
                 }
             } else if(typeof doc === 'object'){ // collate
                 // if any writeTargets are stale, write the entire collated file
