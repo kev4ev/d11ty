@@ -211,7 +211,7 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
     
             if(writeNow){
                 docs.add(inputPath);
-                bufferMap.set(inputPath, writer.addWriteTarget(inputPath, content, pdfOptions));
+                bufferMap.set(inputPath, new writer.WriteTarget(inputPath, inputPath, content, pdfOptions));
             }
         }
         
@@ -242,7 +242,7 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
 
                 if(!bufferMap.has(inputPath)){ // no entry, add it
                     let { outputPath, url } = resultHash[inputPath];
-                    bufferMap.set(inputPath, writer.addWriteTarget(outputPath, url, pdfOptions));
+                    bufferMap.set(inputPath, new writer.WriteTarget(inputPath, outputPath, url, pdfOptions));
                 } else{ // if file has been written since last write, update the buffer
                     let writeTarget = bufferMap.get(inputPath),
                         stale = await writeTarget.needsWrite();
