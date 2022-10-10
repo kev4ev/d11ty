@@ -1,7 +1,8 @@
 const path = require('path');
-const { initWriter } = require('./lib/PdfWriter');
+const PdfWriter = require('./lib/PdfWriter');
 const PluginConfig = require('./lib/PluginConfig');
 const { CLASS_NO_PRINT, CLASS_PAGE_BREAK, D11TY_CSS, HTML_TAGS, NS } = require('./lib/CONSTANTS');
+const { getCliContext } = require('./lib/cliContext');
 
 /**
  * @typedef {import('puppeteer').PDFOptions} PDFOptions
@@ -47,7 +48,7 @@ const PLUGIN_API = (()=>{
                 if(!version) version = '0.9.4';
                 let { srcIsCli, writer } = ctxt;
                 if(srcIsCli){
-                    return `http://localhost:${writer.servePort}/.d11ty_defaults/css/bulma.${version}.css`;
+                    return `http://localhost:${writer.getServerInfo().servePort}/.d11ty_defaults/css/bulma.${version}.css`;
                 } else{
                     throw new Error('Shortcode "getBulmaPath" may only be used in CLI context');
                 }
@@ -100,17 +101,18 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
         docs = new Set(),
         ignores = new Set();
     /**
-     * @type {PdfWriter}
+     * @type {PDFOptions} 
      */
-    let writer;
     let { pdfOptions } = pluginConfig;
+    let writer;
 
     // 'before' event listener to set closure context
     eleventyConfig.on('eleventy.before', function(args){ 
         outputMode = args.outputMode;
+        // initialize the writer
         if(!isDryRun()){
             let servePath = srcIsCli ? cliContext.inputAbsolute() : eleventyConfig.dir.output;
-            writer = initWriter(servePath, eleventyConfig);
+            writer = PdfWriter(servePath, eleventyConfig);
         }
     });
     
@@ -133,10 +135,10 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
             // call function, always passing d11ty context as first arg
             let { inputPath, outputPath } = this.page;
             let ctxt = { 
-                srcIsCli, 
-                writer,
+                srcIsCli,
                 docs, 
                 ignores, 
+                writer,
                 caller: { 
                     inputPath, 
                     outputPath
@@ -195,6 +197,11 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
 
     // transformer
     eleventyConfig.addTransform(NS, async function(content){
+        // in all cases append the css needed to apply d11ty styling
+        content = content.replace(
+            '</head>',
+            D11TY_CSS + '</head>'
+        );
         // only add docs in the transform if running from CLI and in implicit mode or doc explicitly added to docs
         if(srcIsCli){
             let { inputPath, outputPath } = this;
@@ -204,14 +211,9 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
     
             if(writeNow){
                 docs.add(inputPath);
-                bufferMap.set(inputPath, writer.getPdfBuffer(content, pdfOptions));
+                bufferMap.set(inputPath, writer.addWriteTarget(inputPath, content, pdfOptions));
             }
         }
-        // in all cases append the css needed to apply d11ty styling
-        content = content.replace(
-            '</head>',
-            D11TY_CSS + '</head>'
-        );
         
         return content;
     });
@@ -235,11 +237,17 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
                 return prev;
             }, {});
             // iterate docs and add to buffermap from results
-            const addToBufferMap = (inputPath) =>{
-                if(!resultHash[inputPath] || bufferMap.has(inputPath)) return;
+            const addToBufferMap = async (inputPath) =>{
+                if(!resultHash[inputPath]) return;
 
-                let { url } = resultHash[inputPath];
-                bufferMap.set(inputPath, writer.getPdfBuffer(url, pdfOptions, true));
+                if(!bufferMap.has(inputPath)){ // no entry, add it
+                    let { outputPath, url } = resultHash[inputPath];
+                    bufferMap.set(inputPath, writer.addWriteTarget(outputPath, url, pdfOptions));
+                } else{ // if file has been written since last write, update the buffer
+                    let writeTarget = bufferMap.get(inputPath),
+                        stale = await writeTarget.needsWrite();
+                    if(stale) writeTarget.updateBuffer();
+                }
             }
             for(let doc of docs){
                 // skip all collates (objects)
@@ -252,17 +260,17 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
             }
         }
 
-        // wait for all pdf buffers have resolved and reconstitute a hash
-        let buffers = await Promise.all(bufferMap.values()); 
-        let fileHash = Array.from(bufferMap.keys()).reduce((prev, curr, index) => {
-            if(curr) prev[curr] = buffers[index];
-
-            return prev;
-        }, {});
+        // wait for all pdf buffers to resolve
+        try{
+            await Promise.all(Array.from(bufferMap.values()).map(writeTarget => writeTarget.bufferPromise)); 
+        } catch(err){
+            console.error(err);
+            throw err;
+        }
         
         // if srcIsCli and collate option passed, flatten docs to a single-item array
         if(srcIsCli && collate){
-            let initial = { outputPath: `${getInputAbs()}/${collateName}`, files: [] };
+            let initial = { outputPath: `${getCliContext().inputAbsolute()}/${collateName}`, files: [] };
             docs = Array.from(docs).reduce((prev, curr)=>{
                 if(curr) prev[0].files.push(curr);
 
@@ -273,19 +281,31 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
         // iterate docs and write to the fs at appropriate locations
         let filename;
         for(let doc of docs){
-            let buffer = fileHash[doc];
             if(typeof doc === 'string'){
-                filename = (()=>{
-                    if(srcIsCli) return doc.replace('.md', '.pdf');
-
-                    let { outputPath } = resultHash[doc];
-                    return outputPath.replace('.html', '.pdf');
-                })();
-                await writer.writePdfToFs(filename, buffer);
+                let writeTarget = bufferMap.get(doc);
+                if(await writeTarget.needsWrite()){
+                    filename = (()=>{
+                        if(srcIsCli) return doc.replace('.md', '.pdf');
+    
+                        let { outputPath } = resultHash[doc];
+                        return outputPath.replace('.html', '.pdf');
+                    })();
+                    await writeTarget.write();
+                }
             } else if(typeof doc === 'object'){ // collate
+                // if any writeTargets are stale, write the entire collated file
                 let { outputPath, files } = doc;
-                let buffers = files.map(file => fileHash[file]);
-                await writer.collate(buffers, outputPath);
+                let stale = false; 
+                for(let file of files){
+                    let writeTarget = bufferMap.get(file);
+                    if(await writeTarget.needsWrite()){
+                        stale = true; 
+                        break;
+                    }
+                }
+                if(stale){
+                    await writer.collate(files.map(file => bufferMap.get(file)), outputPath);
+                }
             }
         }
     });
