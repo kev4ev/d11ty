@@ -310,6 +310,17 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
                 }
             }
         }
+
+        // if not in --serve, close writer server
+        let persistent = (()=>{
+            let { runMode } = args;
+            if(runMode === 'serve' || runMode === 'watch') return true;
+
+            return false;
+        })();
+        if(!persistent){
+            await writer.close();
+        }
     });
 }
 
