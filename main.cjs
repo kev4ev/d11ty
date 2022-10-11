@@ -2,7 +2,6 @@ const path = require('path');
 const PdfWriter = require('./lib/PdfWriter');
 const PluginConfig = require('./lib/PluginConfig');
 const { CLASS_NO_PRINT, CLASS_PAGE_BREAK, D11TY_CSS, HTML_TAGS, NS } = require('./lib/CONSTANTS');
-const { getCliContext } = require('./lib/cliContext');
 
 /**
  * @typedef {import('puppeteer').PDFOptions} PDFOptions
@@ -91,7 +90,8 @@ function interpretCmd(cmdStr, ...rest){
 function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
     
     // closure variables
-    let { srcIsCli, cliContext, collate, collateName, explicit } = pluginConfig;
+    let { srcIsCli, cliContext } = pluginConfig;
+    let { collate, collateName, explicit } = pluginConfig.cliConfig;
     let implicitMode = srcIsCli && !explicit,
         outputMode,
         isDryRun = ()=>{
@@ -112,7 +112,7 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
         // initialize the writer
         if(!isDryRun()){
             let servePath = srcIsCli ? cliContext.inputAbsolute() : eleventyConfig.dir.output;
-            writer = PdfWriter(servePath, eleventyConfig);
+            writer = PdfWriter(servePath, eleventyConfig, pluginConfig);
         }
     });
     
@@ -272,7 +272,7 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
         
         // if srcIsCli and collate option passed, flatten docs to a single-item array
         if(srcIsCli && collate){
-            let initial = { outputPath: `${getCliContext().inputAbsolute()}/${collateName}`, files: [] };
+            let initial = { outputPath: `${cliContext.inputAbsolute()}/${collateName}`, files: [] };
             docs = Array.from(docs).reduce((prev, curr)=>{
                 if(curr) prev[0].files.push(curr);
 
