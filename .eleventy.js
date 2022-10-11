@@ -8,7 +8,14 @@ module.exports = function(eleventyConfig){
     eleventyConfig.addPassthroughCopy(`${input}/.nojekyll`);
     eleventyConfig.addPassthroughCopy(`${input}/public`);
     // add plugins
-    eleventyConfig.addPlugin(d11ty);
+    eleventyConfig.addPlugin(d11ty, {
+        pdfOptions: {
+            format: 'letter'
+        },
+        serverOptions: {
+            waitBeforeCapture: 0 // included for example purposes 
+        }
+    });
     eleventyConfig.addPlugin(EleventyHtmlBasePlugin);
     return {
         dir: {

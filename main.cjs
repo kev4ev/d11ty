@@ -84,8 +84,8 @@ function interpretCmd(cmdStr, ...rest){
 function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
     
     // closure variables
-    let { srcIsCli, cliContext } = pluginConfig;
-    let { collate, collateName, explicit, frontmatter } = pluginConfig.cliConfig;
+    let { srcIsCli, cliContext, cliConfig } = pluginConfig;
+    let { collate, collateName, explicit } = cliConfig ? cliConfig : {};
     let implicitMode = srcIsCli && !explicit,
         outputMode,
         isDryRun = ()=>{

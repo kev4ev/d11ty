@@ -1,5 +1,10 @@
 ---
 title: Introduction
+d11ty:
+    pdfOptions:
+        format: Letter
+    serverOptions:
+        waitBeforeCapture: 1000
 ---
 
 <!-- print this page to pdf -->
