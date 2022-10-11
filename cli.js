@@ -14,7 +14,7 @@ program
     .option('-f, --config <path>', 'relative path to .d11ty.json file containing config')
     .option('-x, --explicit', 'only print files to PDF that explicitly include the {% d11ty %} shortcode')
     .action(async function(input, flags, cmd){
-        let { config, collate, name, output, explicit } = flags;
+        let { config, collate, name, output, explicit, frontmatter } = flags;
         if(!output) output = path.dirname(input);
 
         try{

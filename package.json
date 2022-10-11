@@ -30,6 +30,7 @@
         "@11ty/eleventy-dev-server": "^1.0.0-canary.14",
         "chalk": "^5.0.1",
         "commander": "^9.4.0",
+        "gray-matter": "^4.0.3",
         "html-tags": "^3.2.0",
         "pdf-lib": "^1.17.1",
         "puppeteer": "^17.1.3"

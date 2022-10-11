@@ -2,10 +2,8 @@ const path = require('path');
 const PdfWriter = require('./lib/PdfWriter');
 const PluginConfig = require('./lib/PluginConfig');
 const { CLASS_NO_PRINT, CLASS_PAGE_BREAK, D11TY_CSS, HTML_TAGS, NS } = require('./lib/CONSTANTS');
-
-/**
- * @typedef {import('puppeteer').PDFOptions} PDFOptions
- */
+// polyfill of sorts as 'page' object is not passed to transformers or events
+const readFrontMatter = require('./lib/readFrontMatter');
 
 // all filters and shortcodes
 const PLUGIN_API = (()=>{
@@ -78,10 +76,6 @@ function interpretCmd(cmdStr, ...rest){
 }
 
 /**
- * @typedef {import('@11ty/eleventy')} EleventyConfig
- */
-
-/**
  * 
  * @param {object} eleventyConfig eleventyConfiguration
  * @param {PluginConfig} pluginConfig d11ty configuration
@@ -91,7 +85,7 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
     
     // closure variables
     let { srcIsCli, cliContext } = pluginConfig;
-    let { collate, collateName, explicit } = pluginConfig.cliConfig;
+    let { collate, collateName, explicit, frontmatter } = pluginConfig.cliConfig;
     let implicitMode = srcIsCli && !explicit,
         outputMode,
         isDryRun = ()=>{
@@ -100,10 +94,6 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
     let bufferMap = new Map(),
         docs = new Set(),
         ignores = new Set();
-    /**
-     * @type {PDFOptions} 
-     */
-    let { pdfOptions } = pluginConfig;
     let writer;
 
     // 'before' event listener to set closure context
@@ -202,7 +192,7 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
             '</head>',
             D11TY_CSS + '</head>'
         );
-        // only add docs in the transform if running from CLI and in implicit mode or doc explicitly added to docs
+        // only add pages in the transform if running from CLI and in implicit mode or doc explicitly added to page
         if(srcIsCli){
             let { inputPath, outputPath } = this;
     
@@ -211,7 +201,8 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
     
             if(writeNow){
                 docs.add(inputPath);
-                bufferMap.set(inputPath, new writer.WriteTarget(inputPath, inputPath, content, pdfOptions));
+                let { pdfOptions, serverOptions } = await readFrontMatter(inputPath);
+                bufferMap.set(inputPath, new writer.WriteTarget(inputPath, inputPath, content, pdfOptions, serverOptions));
             }
         }
         
@@ -242,7 +233,8 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
 
                 if(!bufferMap.has(inputPath)){ // no entry, add it
                     let { outputPath, url } = resultHash[inputPath];
-                    bufferMap.set(inputPath, new writer.WriteTarget(inputPath, outputPath, url, pdfOptions));
+                    let { pdfOptions, serverOptions } = await readFrontMatter(inputPath);
+                    bufferMap.set(inputPath, new writer.WriteTarget(inputPath, outputPath, url, pdfOptions, serverOptions));
                 } else{ // if file has been written since last write, update the buffer
                     let writeTarget = bufferMap.get(inputPath),
                         stale = await writeTarget.needsWrite();
