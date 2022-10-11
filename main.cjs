@@ -273,17 +273,10 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
         }
 
         // iterate docs and write to the fs at appropriate locations
-        let filename;
         for(let doc of docs){
             if(typeof doc === 'string'){
                 let writeTarget = bufferMap.get(doc);
                 if(await writeTarget.needsWrite()){
-                    filename = (()=>{
-                        if(srcIsCli) return doc.replace('.md', '.pdf');
-    
-                        let { outputPath } = resultHash[doc];
-                        return outputPath.replace('.html', '.pdf');
-                    })();
                     await writer.write(writeTarget);
                 }
             } else if(typeof doc === 'object'){ // collate
