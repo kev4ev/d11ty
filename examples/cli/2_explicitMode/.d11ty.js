@@ -4,10 +4,10 @@
 
 module.exports = ()=>{
     /** @type {PDFOptions} */
-    let pdfOptions = {
-        format: 'legal'
-    }
+    let pdfOptions = { format: 'legal' },
+        serverOptions = { waitBeforeCapture: 5000 };
     return {
-        pdfOptions
+        pdfOptions,
+        serverOptions
     }
 }
