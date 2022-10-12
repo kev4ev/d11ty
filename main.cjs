@@ -47,7 +47,8 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
         docs = new Set(),
         ignores = new Set();
     let writer, 
-        writeCount = 0;
+        writeCount = 0,
+        writeStamp = Date.now();
 
     // 'before' event listener to set closure context
     eleventyConfig.on('eleventy.before', function(args){ 
@@ -190,7 +191,7 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
                     bufferMap.set(inputPath, new writer.WriteTarget(inputPath, outputPath, url, pdfOptions, serverOptions));
                 } else{ // if file has been written since last write, update the buffer
                     let writeTarget = bufferMap.get(inputPath),
-                        stale = await writeTarget.needsWrite();
+                        stale = await writeTarget.isStale(writeStamp);
                     if(stale) writeTarget.updateBuffer();
                 }
             }
@@ -229,7 +230,7 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
         for(let doc of docs){
             if(typeof doc === 'string'){
                 let writeTarget = bufferMap.get(doc);
-                if(await writeTarget.needsWrite()){
+                if(await writeTarget.isStale(writeStamp)){
                     await writer.write(writeTarget);
                 }
             } else if(typeof doc === 'object'){ // collate
@@ -239,7 +240,7 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
                 if(writeCount > 0){
                     for(let file of files){
                         let writeTarget = bufferMap.get(file);
-                        if(await writeTarget.needsWrite()){
+                        if(await writeTarget.isStale(writeStamp)){
                             stale = true; 
                             break;
                         }
@@ -262,6 +263,7 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
             await writer.close();
         } else{
             writeCount++;
+            writeStamp = Date.now();
         }
     });
 }
