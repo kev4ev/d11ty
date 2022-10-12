@@ -12,8 +12,9 @@ module.exports = function(eleventyConfig){
         pdfOptions: {
             format: 'letter'
         },
-        serverOptions: {
-            waitBeforeCapture: 0 // included for example purposes 
+        serverOptions: { // included for example purposes
+            waitUntil: 'domcontentloaded',
+            waitBeforeCapture: 0 
         }
     });
     eleventyConfig.addPlugin(EleventyHtmlBasePlugin);
