@@ -51,12 +51,12 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
         writeStamp = Date.now();
 
     // 'before' event listener to set closure context
-    eleventyConfig.on('eleventy.before', function(args){ 
+    eleventyConfig.on('eleventy.before', async function(args){ 
         outputMode = args.outputMode;
         // initialize the writer
         if(!isDryRun()){
             let servePath = srcIsCli ? cliContext.inputAbsolute() : eleventyConfig.dir.output;
-            writer = PdfWriter(servePath, eleventyConfig, pluginConfig);
+            writer = await PdfWriter(servePath, eleventyConfig, pluginConfig);
         }
     });
     
