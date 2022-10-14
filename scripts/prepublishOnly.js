@@ -12,4 +12,4 @@ let version = pkg.version,
 pkg.version = next;
 
 // write back to package.json
-fs.writeFileSync(PKG_PATH, JSON.stringify(pkg), 'utf-8');
+fs.writeFileSync(PKG_PATH, JSON.stringify(pkg, null, 4), 'utf-8');
