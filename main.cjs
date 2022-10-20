@@ -2,60 +2,9 @@ const path = require('path');
 const PdfWriter = require('./lib/PdfWriter');
 const PluginConfig = require('./lib/PluginConfig');
 const { CLASS_NO_PRINT, CLASS_PAGE_BREAK, D11TY_CSS, HTML_TAGS, NS } = require('./lib/CONSTANTS');
-const { getCliContext } = require('./lib/cliContext');
-
-/**
- * @typedef {import('puppeteer').PDFOptions} PDFOptions
- */
-
-// all filters and shortcodes
-const PLUGIN_API = (()=>{
-    return {
-        // shortcodes always receive a d11ty-created ctxt variable as first arg, if they want to use it
-        shortcodes: {
-            collate(ctxt, ...rest){
-                let outName = rest.shift(), 
-                    pages = rest.reduce((prev, curr) => {
-                        if(curr){
-                            if(curr.length) prev = prev.concat(curr);
-                            else if (typeof curr === 'object') prev.push(curr);
-                            else throw new Error(`Invalid value ${typeof curr} - only pages and collections (arrays) of pages may be passed`);
-                        }
-
-                        return prev;
-                    }, []);
-                if(!outName || typeof outName !== 'string') throw new Error('You need to provide a name for your collated file');
-                let { docs, ignores, caller } = ctxt;
-                let { outputPath } = caller;
-                let inName = path.basename(outputPath);
-                outName = outName.trim().split('/').reverse()[0];
-                outName = outName.endsWith('.pdf') ? outName : `${outName}.pdf`;
-                outputPath = outputPath.replace(inName, outName);
-                // filter out ignored pages
-                pages = pages.map(page => page.inputPath).filter(inputPath => !ignores.has(inputPath));
-                // add the collation object
-                let collate = {
-                    outputPath, 
-                    files: pages
-                };
-                docs.add(collate);
-
-                return `./${outName}`;
-            },
-            pb: () => `<div class="${CLASS_PAGE_BREAK}"></div>`,
-            noPrint: ()=> CLASS_NO_PRINT,
-            getBulmaPath(ctxt, version, min){ // for cli use only
-                if(!version) version = '0.9.4';
-                let { srcIsCli, writer } = ctxt;
-                if(srcIsCli){
-                    return `http://localhost:${writer.getServerInfo().servePort}/.d11ty_defaults/css/bulma.${version}.css`;
-                } else{
-                    throw new Error('Shortcode "getBulmaPath" may only be used in CLI context');
-                }
-            }
-        }
-    }
-})();
+const pluginApi = require('./lib/pluginApi');
+// polyfill of sorts as 'page' object is not passed to transformers or events
+const readFrontMatter = require('./lib/readFrontMatter');
 
 /**
  * inspects the raw command passed to the shortcode or filter, and returns structured object
@@ -79,10 +28,6 @@ function interpretCmd(cmdStr, ...rest){
 }
 
 /**
- * @typedef {import('@11ty/eleventy')} EleventyConfig
- */
-
-/**
  * 
  * @param {object} eleventyConfig eleventyConfiguration
  * @param {PluginConfig} pluginConfig d11ty configuration
@@ -91,7 +36,8 @@ function interpretCmd(cmdStr, ...rest){
 function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
     
     // closure variables
-    let { srcIsCli, cliContext, collate, collateName, explicit } = pluginConfig;
+    let { srcIsCli, cliContext, cliConfig } = pluginConfig;
+    let { collate, collateName, explicit } = cliConfig ? cliConfig : {};
     let implicitMode = srcIsCli && !explicit,
         outputMode,
         isDryRun = ()=>{
@@ -100,24 +46,22 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
     let bufferMap = new Map(),
         docs = new Set(),
         ignores = new Set();
-    /**
-     * @type {PDFOptions} 
-     */
-    let { pdfOptions } = pluginConfig;
-    let writer;
+    let writer, 
+        writeCount = 0,
+        writeStamp = Date.now();
 
     // 'before' event listener to set closure context
-    eleventyConfig.on('eleventy.before', function(args){ 
+    eleventyConfig.on('eleventy.before', async function(args){ 
         outputMode = args.outputMode;
         // initialize the writer
         if(!isDryRun()){
             let servePath = srcIsCli ? cliContext.inputAbsolute() : eleventyConfig.dir.output;
-            writer = PdfWriter(servePath, eleventyConfig);
+            writer = await PdfWriter(servePath, eleventyConfig, pluginConfig);
         }
     });
     
     // d11ty sync shortcodes (async shortcodes have a separate API)
-    let { shortcodes, filters } = PLUGIN_API;
+    let { shortcodes, filters } = pluginApi;
     if(shortcodes){
         eleventyConfig.addShortcode(NS, function(cmdStr, ...rest){
             // if no cmd is provided - e.g. {% doc11ty %} in the template - invoke the "include" function
@@ -195,14 +139,15 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
         });
     }
 
-    // transformer
-    eleventyConfig.addTransform(NS, async function(content){
+    // transformer - NOTE, for some reason eleventy doesn't play nice with async here, as the WriteTarget.bufferPromise
+    // gets thrown away somewhere; so, DON'T MAKE THIS ASYNC :)
+    eleventyConfig.addTransform(NS, function(content){
         // in all cases append the css needed to apply d11ty styling
         content = content.replace(
             '</head>',
             D11TY_CSS + '</head>'
         );
-        // only add docs in the transform if running from CLI and in implicit mode or doc explicitly added to docs
+        // only add pages in the transform if running from CLI and in implicit mode or doc explicitly added to page
         if(srcIsCli){
             let { inputPath, outputPath } = this;
     
@@ -211,7 +156,8 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
     
             if(writeNow){
                 docs.add(inputPath);
-                bufferMap.set(inputPath, new writer.WriteTarget(inputPath, inputPath, content, pdfOptions));
+                let { pdfOptions, serverOptions } = readFrontMatter(inputPath);
+                bufferMap.set(inputPath, new writer.WriteTarget(inputPath, inputPath, content, pdfOptions, serverOptions));
             }
         }
         
@@ -242,10 +188,11 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
 
                 if(!bufferMap.has(inputPath)){ // no entry, add it
                     let { outputPath, url } = resultHash[inputPath];
-                    bufferMap.set(inputPath, new writer.WriteTarget(inputPath, outputPath, url, pdfOptions));
+                    let { pdfOptions, serverOptions } = readFrontMatter(inputPath);
+                    bufferMap.set(inputPath, new writer.WriteTarget(inputPath, outputPath, url, pdfOptions, serverOptions));
                 } else{ // if file has been written since last write, update the buffer
                     let writeTarget = bufferMap.get(inputPath),
-                        stale = await writeTarget.needsWrite();
+                        stale = await writeTarget.isStale(writeStamp);
                     if(stale) writeTarget.updateBuffer();
                 }
             }
@@ -272,7 +219,7 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
         
         // if srcIsCli and collate option passed, flatten docs to a single-item array
         if(srcIsCli && collate){
-            let initial = { outputPath: `${getCliContext().inputAbsolute()}/${collateName}`, files: [] };
+            let initial = { outputPath: `${cliContext.inputAbsolute()}/${collateName}`, files: [] };
             docs = Array.from(docs).reduce((prev, curr)=>{
                 if(curr) prev[0].files.push(curr);
 
@@ -281,31 +228,26 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
         }
 
         // iterate docs and write to the fs at appropriate locations
-        let filename;
         for(let doc of docs){
             if(typeof doc === 'string'){
                 let writeTarget = bufferMap.get(doc);
-                if(await writeTarget.needsWrite()){
-                    filename = (()=>{
-                        if(srcIsCli) return doc.replace('.md', '.pdf');
-    
-                        let { outputPath } = resultHash[doc];
-                        return outputPath.replace('.html', '.pdf');
-                    })();
+                if(await writeTarget.isStale(writeStamp)){
                     await writer.write(writeTarget);
                 }
             } else if(typeof doc === 'object'){ // collate
                 // if any writeTargets are stale, write the entire collated file
                 let { outputPath, files } = doc;
                 let stale = false; 
-                for(let file of files){
-                    let writeTarget = bufferMap.get(file);
-                    if(await writeTarget.needsWrite()){
-                        stale = true; 
-                        break;
+                if(writeCount > 0){
+                    for(let file of files){
+                        let writeTarget = bufferMap.get(file);
+                        if(await writeTarget.isStale(writeStamp)){
+                            stale = true; 
+                            break;
+                        }
                     }
                 }
-                if(stale){
+                if(writeCount === 0 || stale){
                     await writer.collate(files.map(file => bufferMap.get(file)), outputPath);
                 }
             }
@@ -320,6 +262,9 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
         })();
         if(!persistent){
             await writer.close();
+        } else{
+            writeCount++;
+            writeStamp = Date.now();
         }
     });
 }
