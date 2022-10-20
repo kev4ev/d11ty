@@ -139,8 +139,9 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
         });
     }
 
-    // transformer
-    eleventyConfig.addTransform(NS, async function(content){
+    // transformer - NOTE, for some reason eleventy doesn't play nice with async here, as the WriteTarget.bufferPromise
+    // gets thrown away somewhere; so, DON'T MAKE THIS ASYNC :)
+    eleventyConfig.addTransform(NS, function(content){
         // in all cases append the css needed to apply d11ty styling
         content = content.replace(
             '</head>',
@@ -155,7 +156,7 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
     
             if(writeNow){
                 docs.add(inputPath);
-                let { pdfOptions, serverOptions } = await readFrontMatter(inputPath);
+                let { pdfOptions, serverOptions } = readFrontMatter(inputPath);
                 bufferMap.set(inputPath, new writer.WriteTarget(inputPath, inputPath, content, pdfOptions, serverOptions));
             }
         }
@@ -187,7 +188,7 @@ function plugin(eleventyConfig, pluginConfig=new PluginConfig()){
 
                 if(!bufferMap.has(inputPath)){ // no entry, add it
                     let { outputPath, url } = resultHash[inputPath];
-                    let { pdfOptions, serverOptions } = await readFrontMatter(inputPath);
+                    let { pdfOptions, serverOptions } = readFrontMatter(inputPath);
                     bufferMap.set(inputPath, new writer.WriteTarget(inputPath, outputPath, url, pdfOptions, serverOptions));
                 } else{ // if file has been written since last write, update the buffer
                     let writeTarget = bufferMap.get(inputPath),

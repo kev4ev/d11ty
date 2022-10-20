@@ -3,7 +3,7 @@ d11ty:
     pdfOptions:
         format: a3
     serverOptions:
-        waitBeforeCapture: 5000
+        waitBeforeCapture: 500
 ---
 
 # No Diggity
