@@ -1,0 +1,4 @@
+docs/**
+examples/**
+.eleventy.js
+scripts/prepublishOnly.js

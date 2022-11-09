@@ -4,16 +4,6 @@
     "version": "0.8.0",
     "description": "Transform your markdown into beautiful PDFs",
     "main": "main.cjs",
-    "files": [
-        ".d11ty_defaults",
-        ".vscode/d11ty.code-snippets",
-        "lib",
-        ".npmrc",
-        "cli.js",
-        "main.cjs",
-        "package.json",
-        "README.md"
-    ],
     "scripts": {
         "inspect:cli": "node --inspect-brk -- cli.js",
         "inspect:plugin:serve": "npm run inspect:plugin -- --serve",
