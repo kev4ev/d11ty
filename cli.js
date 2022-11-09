@@ -13,8 +13,9 @@ program
     .option('-n, --name <name>', 'when collating, the name of the output PDF (defaults to "collate.pdf")')
     .option('-f, --config <path>', 'relative path to .d11ty.json file containing config')
     .option('-x, --explicit', 'only print files to PDF that explicitly include the {% d11ty %} shortcode')
+    .option('-w, --watch', 'watch file or directory and automatically write pdf on change')
     .action(async function(input, flags, cmd){
-        let { config, collate, name, output, explicit } = flags;
+        let { config, collate, name, output, explicit, watch } = flags;
         if(!output) output = path.dirname(input);
 
         try{
@@ -38,7 +39,8 @@ program
                 output,
                 explicit,
                 collate,
-                collateName: name
+                collateName: name, 
+                watch
             });
             await cliAdapter(input, new PluginConfig(baseConfig, pluginConfig));
 
