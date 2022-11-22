@@ -1,7 +1,7 @@
 {
     "bin": "cli.js",
     "name": "d11ty",
-    "version": "0.8.0",
+    "version": "0.8.1",
     "description": "Transform your markdown into beautiful PDFs",
     "main": "main.cjs",
     "scripts": {
@@ -26,8 +26,8 @@
     },
     "homepage": "kev4ev.github.io",
     "dependencies": {
-        "@11ty/eleventy": "^2.0.0-canary.16",
-        "@11ty/eleventy-dev-server": "^1.0.0-canary.14",
+        "@11ty/eleventy": "^2.0.0-canary",
+        "@11ty/eleventy-dev-server": "^1.0.0-canary",
         "chalk": "^5.0.1",
         "commander": "^9.4.0",
         "gray-matter": "^4.0.3",
